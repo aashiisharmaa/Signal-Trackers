@@ -1467,6 +1467,14 @@ private async Task<List<object>> GetMainDataOnlyEF(
     if (!string.IsNullOrEmpty(provider))
         query = query.Where(log => log.m_alpha_long != null && log.m_alpha_long.ToLower().Contains(provider));
 
+    // network type (4G/5G/etc) filtering
+    if (!string.IsNullOrWhiteSpace(filters.NetworkType) &&
+        !filters.NetworkType.Equals("All", StringComparison.OrdinalIgnoreCase))
+    {
+        var nt = filters.NetworkType.Trim();
+        query = query.Where(log => log.network != null && EF.Functions.Like(log.network, $"%{nt}%"));
+    }
+
     DateTime? from = filters.StartDate;
     DateTime? to = filters.EndDate?.AddDays(1);
     if (from.HasValue) query = query.Where(log => log.timestamp >= from.Value);
@@ -1705,6 +1713,22 @@ private (string Clause, Dictionary<string, object> Params) BuildSqlWhere(
     }
     
     clauses.Add("primary_cell_info_1 LIKE '%mRegistered=YES%'");
+
+    // --- network type filter (4G/5G/etc) ---
+    if (!string.IsNullOrWhiteSpace(filters?.NetworkType) &&
+        !filters.NetworkType.Equals("All", StringComparison.OrdinalIgnoreCase))
+    {
+        var nt = filters.NetworkType.Trim();
+        if (nt.Equals("5G", StringComparison.OrdinalIgnoreCase) ||
+            nt.Equals("4G", StringComparison.OrdinalIgnoreCase) ||
+            nt.Equals("3G", StringComparison.OrdinalIgnoreCase) ||
+            nt.Equals("2G", StringComparison.OrdinalIgnoreCase))
+        {
+            string pname = "@netPattern";
+            clauses.Add("network LIKE " + pname);
+            p.Add(pname, $"%{nt}%");
+        }
+    }
 
     return (string.Join(" AND ", clauses), p);
 }
@@ -5955,6 +5979,23 @@ public async Task<JsonResult> GetDominanceDetails([FromQuery] MapFilter1 filters
             ? $"t1.session_id IN ({string.Join(",", idParams)})" 
             : "1=0";
 
+        // network type filter for dominance query
+        string networkClause = "";
+        if (!string.IsNullOrWhiteSpace(filters?.NetworkType) &&
+            !filters.NetworkType.Equals("All", StringComparison.OrdinalIgnoreCase))
+        {
+            var nt = filters.NetworkType.Trim();
+            if (nt.Equals("5G", StringComparison.OrdinalIgnoreCase) ||
+                nt.Equals("4G", StringComparison.OrdinalIgnoreCase) ||
+                nt.Equals("3G", StringComparison.OrdinalIgnoreCase) ||
+                nt.Equals("2G", StringComparison.OrdinalIgnoreCase))
+            {
+                // use parameter to avoid SQL injection
+                networkClause = " AND t1.network LIKE @netPattern";
+                p.Add("@netPattern", $"%{nt}%");
+            }
+        }
+
         // 2. The SQL Query
         string sql = $@"
             SELECT 
@@ -5971,6 +6012,7 @@ public async Task<JsonResult> GetDominanceDetails([FromQuery] MapFilter1 filters
                 AND t1.primary_cell_info_1 LIKE '%mRegistered=YES%'
                 AND t1.rsrp IS NOT NULL 
                 AND t2.rsrp IS NOT NULL
+                {networkClause}
             ORDER BY t1.id, DominanceValue ASC
             ";
 

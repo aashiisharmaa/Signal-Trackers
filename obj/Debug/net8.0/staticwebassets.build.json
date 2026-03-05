@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "p4XN2OQWnqy7O8x+auPHfOORZYpwdaNk956dXmxOs9k=",
+  "Hash": "zg1bTANkZCKO2d1NPLqeSMw2iAalzSo7KCAr7IprhrE=",
   "Source": "SignalTracker",
   "BasePath": "_content/SignalTracker",
   "Mode": "Default",
@@ -10,17 +10,17 @@
     {
       "Name": "SignalTracker\\wwwroot",
       "Source": "SignalTracker",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "Pattern": "**"
     }
   ],
   "Assets": [
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\content\\angular-moment-picker.css",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\content\\angular-moment-picker.css",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "content/angular-moment-picker.css",
       "AssetKind": "All",
@@ -36,10 +36,10 @@
       "OriginalItemSpec": "wwwroot\\content\\angular-moment-picker.css"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\content\\custom.min.css",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\content\\custom.min.css",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "content/custom.min.css",
       "AssetKind": "All",
@@ -55,10 +55,10 @@
       "OriginalItemSpec": "wwwroot\\content\\custom.min.css"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\content\\jquery.alerts.css",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\content\\jquery.alerts.css",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "content/jquery.alerts.css",
       "AssetKind": "All",
@@ -74,10 +74,10 @@
       "OriginalItemSpec": "wwwroot\\content\\jquery.alerts.css"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\content\\ng-modal.css",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\content\\ng-modal.css",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "content/ng-modal.css",
       "AssetKind": "All",
@@ -93,10 +93,10 @@
       "OriginalItemSpec": "wwwroot\\content\\ng-modal.css"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\css\\apex-charts.css",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\css\\apex-charts.css",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "css/apex-charts.css",
       "AssetKind": "All",
@@ -112,10 +112,10 @@
       "OriginalItemSpec": "wwwroot\\css\\apex-charts.css"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\css\\api.min.css",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\css\\api.min.css",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "css/api.min.css",
       "AssetKind": "All",
@@ -131,10 +131,10 @@
       "OriginalItemSpec": "wwwroot\\css\\api.min.css"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\css\\card-analytics.css",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\css\\card-analytics.css",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "css/card-analytics.css",
       "AssetKind": "All",
@@ -150,10 +150,10 @@
       "OriginalItemSpec": "wwwroot\\css\\card-analytics.css"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\css\\core.css",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\css\\core.css",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "css/core.css",
       "AssetKind": "All",
@@ -169,10 +169,10 @@
       "OriginalItemSpec": "wwwroot\\css\\core.css"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\css\\demo.css",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\css\\demo.css",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "css/demo.css",
       "AssetKind": "All",
@@ -188,10 +188,10 @@
       "OriginalItemSpec": "wwwroot\\css\\demo.css"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\css\\iconify-icons.css",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\css\\iconify-icons.css",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "css/iconify-icons.css",
       "AssetKind": "All",
@@ -207,10 +207,10 @@
       "OriginalItemSpec": "wwwroot\\css\\iconify-icons.css"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\css\\perfect-scrollbar.css",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\css\\perfect-scrollbar.css",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "css/perfect-scrollbar.css",
       "AssetKind": "All",
@@ -226,10 +226,10 @@
       "OriginalItemSpec": "wwwroot\\css\\perfect-scrollbar.css"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\css\\pickr-themes.css",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\css\\pickr-themes.css",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "css/pickr-themes.css",
       "AssetKind": "All",
@@ -245,10 +245,10 @@
       "OriginalItemSpec": "wwwroot\\css\\pickr-themes.css"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\css\\vendor-style.css",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\css\\vendor-style.css",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "css/vendor-style.css",
       "AssetKind": "All",
@@ -264,10 +264,10 @@
       "OriginalItemSpec": "wwwroot\\css\\vendor-style.css"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\css\\vendor-style.min.css",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\css\\vendor-style.min.css",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "css/vendor-style.min.css",
       "AssetKind": "All",
@@ -283,10 +283,10 @@
       "OriginalItemSpec": "wwwroot\\css\\vendor-style.min.css"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\favicon.ico",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\favicon.ico",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "favicon.ico",
       "AssetKind": "All",
@@ -302,10 +302,10 @@
       "OriginalItemSpec": "wwwroot\\favicon.ico"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\js\\admin-bundle.js",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\admin-bundle.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/admin-bundle.js",
       "AssetKind": "All",
@@ -321,10 +321,10 @@
       "OriginalItemSpec": "wwwroot\\js\\admin-bundle.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\js\\apexcharts.js",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\apexcharts.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/apexcharts.js",
       "AssetKind": "All",
@@ -340,10 +340,10 @@
       "OriginalItemSpec": "wwwroot\\js\\apexcharts.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\js\\api.min.js",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\api.min.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/api.min.js",
       "AssetKind": "All",
@@ -359,10 +359,10 @@
       "OriginalItemSpec": "wwwroot\\js\\api.min.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\js\\app-ecommerce-dashboard.js",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\app-ecommerce-dashboard.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/app-ecommerce-dashboard.js",
       "AssetKind": "All",
@@ -378,10 +378,10 @@
       "OriginalItemSpec": "wwwroot\\js\\app-ecommerce-dashboard.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\js\\autocomplete-js.js",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\autocomplete-js.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/autocomplete-js.js",
       "AssetKind": "All",
@@ -397,10 +397,10 @@
       "OriginalItemSpec": "wwwroot\\js\\autocomplete-js.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\js\\bootstrap.js",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\bootstrap.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/bootstrap.js",
       "AssetKind": "All",
@@ -416,10 +416,10 @@
       "OriginalItemSpec": "wwwroot\\js\\bootstrap.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\js\\config.js",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\config.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/config.js",
       "AssetKind": "All",
@@ -435,10 +435,10 @@
       "OriginalItemSpec": "wwwroot\\js\\config.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\js\\gtm.js",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\gtm.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/gtm.js",
       "AssetKind": "All",
@@ -454,10 +454,10 @@
       "OriginalItemSpec": "wwwroot\\js\\gtm.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\js\\hammer.js",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\hammer.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/hammer.js",
       "AssetKind": "All",
@@ -473,10 +473,10 @@
       "OriginalItemSpec": "wwwroot\\js\\hammer.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\js\\helpers.js",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\helpers.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/helpers.js",
       "AssetKind": "All",
@@ -492,10 +492,10 @@
       "OriginalItemSpec": "wwwroot\\js\\helpers.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\js\\i18n.js",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\i18n.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/i18n.js",
       "AssetKind": "All",
@@ -511,10 +511,10 @@
       "OriginalItemSpec": "wwwroot\\js\\i18n.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\js\\jquery.js",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\jquery.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/jquery.js",
       "AssetKind": "All",
@@ -530,10 +530,10 @@
       "OriginalItemSpec": "wwwroot\\js\\jquery.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\js\\main.js",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\main.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/main.js",
       "AssetKind": "All",
@@ -549,10 +549,10 @@
       "OriginalItemSpec": "wwwroot\\js\\main.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\js\\menu.js",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\menu.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/menu.js",
       "AssetKind": "All",
@@ -568,10 +568,10 @@
       "OriginalItemSpec": "wwwroot\\js\\menu.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\js\\perfect-scrollbar.js",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\perfect-scrollbar.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/perfect-scrollbar.js",
       "AssetKind": "All",
@@ -587,10 +587,10 @@
       "OriginalItemSpec": "wwwroot\\js\\perfect-scrollbar.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\js\\pickr.js",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\pickr.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/pickr.js",
       "AssetKind": "All",
@@ -606,10 +606,10 @@
       "OriginalItemSpec": "wwwroot\\js\\pickr.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\js\\popper.js",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\popper.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/popper.js",
       "AssetKind": "All",
@@ -625,10 +625,10 @@
       "OriginalItemSpec": "wwwroot\\js\\popper.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\js\\template-customizer.js",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\template-customizer.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/template-customizer.js",
       "AssetKind": "All",
@@ -644,10 +644,10 @@
       "OriginalItemSpec": "wwwroot\\js\\template-customizer.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\js\\vendor-bundle.js",
+      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\vendor-bundle.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/vendor-bundle.js",
       "AssetKind": "All",

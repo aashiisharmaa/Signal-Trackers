@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "OUjYUTubKLY=",
+  "dgSpecHash": "Eo2gAgLE/Iw=",
   "success": true,
-  "projectFilePath": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\SignalTracker.csproj",
+  "projectFilePath": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers (4)h\\SignalTracker.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Vinfocom\\.nuget\\packages\\bcrypt.net-next\\4.0.3\\bcrypt.net-next.4.0.3.nupkg.sha512",
     "C:\\Users\\Vinfocom\\.nuget\\packages\\buildbundlerminifier\\3.2.449\\buildbundlerminifier.3.2.449.nupkg.sha512",

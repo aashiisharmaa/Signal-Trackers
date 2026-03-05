@@ -11214,11 +11214,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\SignalTracker.csproj",
+      "projectUniqueName": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers (4)h\\SignalTracker.csproj",
       "projectName": "SignalTracker",
-      "projectPath": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\SignalTracker.csproj",
+      "projectPath": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers (4)h\\SignalTracker.csproj",
       "packagesPath": "C:\\Users\\Vinfocom\\.nuget\\packages\\",
-      "outputPath": "C:\\SignalTracker\\SignalTrackers (4)\\SignalTrackers\\obj\\",
+      "outputPath": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers (4)h\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\Vinfocom\\AppData\\Roaming\\NuGet\\NuGet.Config"

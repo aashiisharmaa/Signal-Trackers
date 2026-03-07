@@ -2704,7 +2704,7 @@ ORDER BY p.timestamp;
 [HttpGet("GetN78Neighbours")]
 public async Task<IActionResult> GetN78Neighbours([FromQuery] string session_ids)
 {
-    // ================= VALIDATION =================
+    // ================= 1. VALIDATION =================
     if (string.IsNullOrWhiteSpace(session_ids))
         return BadRequest(new { Status = 0, Message = "session_ids are required" });
 
@@ -2719,109 +2719,78 @@ public async Task<IActionResult> GetN78Neighbours([FromQuery] string session_ids
         return BadRequest(new { Status = 0, Message = "No valid session_ids" });
 
     string sessionCsv = string.Join(",", parsedIds);
-    string cacheKey = $"4g_5g_neighbour:{sessionCsv}";
 
-    // ================= REDIS READ =================
-    if (_redis != null && _redis.IsConnected)
-    {
-        try
-        {
-            var cached = await _redis.GetObjectAsync<List<LTE5GNeighbourDto>>(cacheKey);
-            if (cached != null)
-            {
-                Response.Headers["X-Cache"] = "HIT";
-                return Ok(new
-                {
-                    Status = 1,
-                    Cached = true,
-                    SessionCount = parsedIds.Count,
-                    RecordCount = cached.Count,
-                    Data = cached
-                });
-            }
-        }
-        catch { /* Ignore cache errors */ }
-    }
-
-    // ================= YOUR FAST WORKING SQL =================
+    // ================= 2. UPDATED SQL (Full Neighbor Details) =================
     var sql = $@"
-        SELECT 
-            p.id,
-            p.session_id,
-            p.timestamp,
-            p.lat,
-            p.lon,
-            p.indoor_outdoor,
-            
-            -- Primary (4G) Info
-            p.network AS primary_network,
-            p.band AS primary_band,
-            p.rsrp AS primary_rsrp,
-            p.rsrq AS primary_rsrq,
-            p.sinr AS primary_sinr,
-            p.pci AS primary_pci,
-            p.m_alpha_long AS provider,
-            p.mos,
-            CAST(NULLIF(p.dl_tpt, '') AS DECIMAL(12,4)) AS dl_tpt,
-            CAST(NULLIF(p.ul_tpt, '') AS DECIMAL(12,4)) AS ul_tpt,
-            
-            -- Neighbour (5G) Info
-            n.band AS neighbour_band,
-            n.rsrp AS neighbour_rsrp,
-            n.rsrq AS neighbour_rsrq,
-            n.pci AS neighbour_pci
-            
-        FROM tbl_network_log p
-        INNER JOIN tbl_network_log_neighbour n 
-            ON p.lat = n.lat
-            AND p.lon = n.lon
-            AND p.session_id = n.session_id
-        WHERE 
-            -- Primary: 4G/LTE
-            p.network IN ('LTE', '4G', 'LTE-A', 'LTE+', 'LTE_CA')
-            
-            -- Neighbour: 5G NR Bands
-            AND n.band IN (
-                'n1', 'n3', 'n5', 'n7', 'n8', 'n20', 'n28',
-                'n38', 'n40', 'n41', 'n66', 'n71', 
-                'n77', 'n78', 'n79',
-                'N1', 'N3', 'N5', 'N7', 'N8', 'N20', 'N28',
-                'N38', 'N40', 'N41', 'N66', 'N71',
-                'N77', 'N78', 'N79'
-            )
-            
-            -- Session Filter
-            AND p.session_id IN ({sessionCsv})
-            
-            -- Valid coordinates
-            AND p.lat IS NOT NULL 
-            AND p.lon IS NOT NULL
-            
-        ORDER BY p.session_id, p.timestamp;
-    ";
+WITH RankedData AS (
+    SELECT 
+        p.id,
+        p.session_id,
+        p.timestamp,
+        p.lat,
+        p.lon,
+        p.indoor_outdoor,
+        p.m_alpha_long AS provider,
 
-    // ================= DB EXECUTION =================
+        -- Primary Side
+        p.network AS primary_network,
+        p.band    AS primary_band,
+        p.pci     AS primary_pci,
+        p.rsrp    AS primary_rsrp,
+        p.rsrq    AS primary_rsrq,
+        p.sinr    AS primary_sinr,
+        p.mos     AS mos,
+        CAST(NULLIF(p.dl_tpt, '') AS DECIMAL(12,4)) AS dl_tpt,
+        CAST(NULLIF(p.ul_tpt, '') AS DECIMAL(12,4)) AS ul_tpt,
+        
+        -- Neighbour Side (Added Technology, Provider, SINR, and Throughput)
+        n.network AS neighbour_network,
+        n.band    AS neighbour_band,
+        n.pci     AS neighbour_pci,
+        n.rsrp    AS neighbour_rsrp,
+        n.rsrq    AS neighbour_rsrq,
+        n.sinr    AS neighbour_sinr,
+        n.m_alpha_long AS neighbour_provider,
+        CAST(NULLIF(n.dl_tpt, '') AS DECIMAL(12,4)) AS neighbour_dl_tpt,
+        CAST(NULLIF(n.ul_tpt, '') AS DECIMAL(12,4)) AS neighbour_ul_tpt,
+
+        ROW_NUMBER() OVER (
+            PARTITION BY p.session_id, p.lat, p.lon 
+            ORDER BY CAST(n.rsrp AS SIGNED) DESC
+        ) AS rn
+    FROM tbl_network_log p
+    INNER JOIN tbl_network_log_neighbour n 
+        ON p.lat = n.lat
+        AND p.lon = n.lon
+        AND p.session_id = n.session_id
+    WHERE p.session_id IN ({sessionCsv})
+      AND p.primary = 'yes'
+      AND (
+          -- Crossover Logic (4G Primary -> 5G Neighbor OR 5G Primary -> 4G Neighbor)
+          ((p.network LIKE '%4G%' OR p.network LIKE '%LTE%') AND (n.network LIKE '%5G%' OR n.network LIKE '%NR%'))
+          OR 
+          ((p.network LIKE '%5G%' OR p.network LIKE '%NR%') AND (n.network LIKE '%4G%' OR n.network LIKE '%LTE%'))
+      )
+)
+SELECT 
+    id, session_id, timestamp, lat, lon, indoor_outdoor, provider,
+    primary_network, primary_band, primary_pci, primary_rsrp, primary_rsrq, primary_sinr,
+    mos, dl_tpt, ul_tpt,
+    neighbour_network, neighbour_band, neighbour_pci, neighbour_rsrp, neighbour_rsrq, 
+    neighbour_sinr, neighbour_provider, neighbour_dl_tpt, neighbour_ul_tpt
+FROM RankedData 
+WHERE rn = 1 
+ORDER BY timestamp;";
+
+    // ================= 3. DB EXECUTION =================
     var data = await db.LTE5GNeighbourDto
         .FromSqlRaw(sql)
         .AsNoTracking()
         .ToListAsync();
 
-    // ================= REDIS WRITE =================
-    if (_redis != null && _redis.IsConnected)
-    {
-        try
-        {
-            await _redis.SetObjectAsync(cacheKey, data, ttlSeconds: 300);
-        }
-        catch { /* Ignore cache errors */ }
-    }
-
-    Response.Headers["X-Cache"] = "MISS";
-
     return Ok(new
     {
         Status = 1,
-        Cached = false,
         SessionCount = parsedIds.Count,
         RecordCount = data.Count,
         Data = data

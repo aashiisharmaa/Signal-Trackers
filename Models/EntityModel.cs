@@ -245,10 +245,17 @@ public class tbl_company_license_grant_history
         public double? ul_tpt { get; set; }        // ✅ Changed to double
         
         // Neighbour (5G) Info
-        public string? neighbour_band { get; set; }
-        public double? neighbour_rsrp { get; set; }
-        public double? neighbour_rsrq { get; set; }
-        public string? neighbour_pci { get; set; }  // ✅ Changed to string
+        // 🔥 ADD THESE NEW NEIGHBOUR PROPERTIES 🔥
+    public string neighbour_network { get; set; }
+    public string neighbour_provider { get; set; }
+    public string neighbour_band { get; set; }
+    public string neighbour_pci { get; set; }
+    public double neighbour_rsrp { get; set; }
+    public double neighbour_rsrq { get; set; }
+    public double neighbour_sinr { get; set; }
+    public decimal neighbour_dl_tpt { get; set; }
+    public decimal neighbour_ul_tpt { get; set; }
+         // ✅ Changed to string
     }
 
     // ========================= Network Logs =========================

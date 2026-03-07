@@ -224,39 +224,37 @@ public class tbl_company_license_grant_history
     }
  [Keyless]
     public class LTE5GNeighbourDto
-    {
-        public long id { get; set; }           // ✅ Changed to long (safer)
-        public int session_id { get; set; }
-        public DateTime? timestamp { get; set; }
-        public double? lat { get; set; }
-        public double? lon { get; set; }
-        public string? indoor_outdoor { get; set; }
-        
-        // Primary (4G) Info
-        public string? primary_network { get; set; }
-        public string? primary_band { get; set; }
-        public double? primary_rsrp { get; set; }
-        public double? primary_rsrq { get; set; }
-        public double? primary_sinr { get; set; }
-        public string? primary_pci { get; set; }   // ✅ Changed to string
-        public string? provider { get; set; }
-        public double? mos { get; set; }
-        public double? dl_tpt { get; set; }        // ✅ Changed to double
-        public double? ul_tpt { get; set; }        // ✅ Changed to double
-        
-        // Neighbour (5G) Info
-        // 🔥 ADD THESE NEW NEIGHBOUR PROPERTIES 🔥
+{
+    public int id { get; set; }
+    public int session_id { get; set; }
+    public DateTime timestamp { get; set; }
+    public double lat { get; set; }
+    public double lon { get; set; }
+    public string indoor_outdoor { get; set; }
+    public string provider { get; set; }
+
+    // Primary KPIs (Added ? for null safety)
+    public string primary_network { get; set; }
+    public string primary_band { get; set; }
+    public string primary_pci { get; set; }
+    public double? primary_rsrp { get; set; }
+    public double? primary_rsrq { get; set; }
+    public double? primary_sinr { get; set; }
+    public double? mos { get; set; }
+    public decimal? dl_tpt { get; set; }
+    public decimal? ul_tpt { get; set; }
+
+    // Neighbour KPIs (Added ? for null safety)
     public string neighbour_network { get; set; }
     public string neighbour_provider { get; set; }
     public string neighbour_band { get; set; }
     public string neighbour_pci { get; set; }
-    public double neighbour_rsrp { get; set; }
-    public double neighbour_rsrq { get; set; }
-    public double neighbour_sinr { get; set; }
-    public decimal neighbour_dl_tpt { get; set; }
-    public decimal neighbour_ul_tpt { get; set; }
-         // ✅ Changed to string
-    }
+    public double? neighbour_rsrp { get; set; }
+    public double? neighbour_rsrq { get; set; }
+    public double? neighbour_sinr { get; set; }
+    public decimal? neighbour_dl_tpt { get; set; }
+    public decimal? neighbour_ul_tpt { get; set; }
+}
 
     // ========================= Network Logs =========================
     public class tbl_network_log

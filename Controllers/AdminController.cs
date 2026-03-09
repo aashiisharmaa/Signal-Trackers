@@ -791,6 +791,161 @@ private int GetTargetCompanyId(int? explicitCompanyId)
 
             return Ok(message);
         }
+
+        [HttpPost("ActivateUser")]
+        public async Task<IActionResult> ActivateUser([FromBody] DeleteUserRequest request)
+        {
+            var message = new ReturnAPIResponse();
+
+            try
+            {
+                cf.SessionCheck();
+
+                if (request == null || request.Id <= 0)
+                {
+                    message.Status = 0;
+                    message.Message = "Invalid user id";
+                    return Ok(message);
+                }
+
+                var user = await db.tbl_user
+                                   .Where(x => x.id == request.Id)
+                                   .FirstOrDefaultAsync();
+
+                if (user == null)
+                {
+                    message.Status = 0;
+                    message.Message = "User not found";
+                    return Ok(message);
+                }
+
+                user.isactive = 1;
+                db.tbl_user.Update(user);
+                var rows = await db.SaveChangesAsync();
+
+                if (rows > 0)
+                {
+                    message.Status = 1;
+                    message.Message = "User activated successfully";
+                    message.token = cf.CreateToken(request.Ip);
+                }
+                else
+                {
+                    message.Status = 0;
+                    message.Message = "Activation failed";
+                }
+            }
+            catch (Exception ex)
+            {
+                message.Status = 0;
+                message.Message = ex.Message;
+            }
+
+            return Ok(message);
+        }
+
+        [HttpPost("InactivateUser")]
+        public async Task<IActionResult> InactivateUser([FromBody] DeleteUserRequest request)
+        {
+            var message = new ReturnAPIResponse();
+
+            try
+            {
+                cf.SessionCheck();
+
+                if (request == null || request.Id <= 0)
+                {
+                    message.Status = 0;
+                    message.Message = "Invalid user id";
+                    return Ok(message);
+                }
+
+                var user = await db.tbl_user
+                                   .Where(x => x.id == request.Id && x.isactive != 2)
+                                   .FirstOrDefaultAsync();
+
+                if (user == null)
+                {
+                    message.Status = 0;
+                    message.Message = "User not found or already deleted";
+                    return Ok(message);
+                }
+
+                user.isactive = 0;
+                db.tbl_user.Update(user);
+                var rows = await db.SaveChangesAsync();
+
+                if (rows > 0)
+                {
+                    message.Status = 1;
+                    message.Message = "User inactivated successfully";
+                    message.token = cf.CreateToken(request.Ip);
+                }
+                else
+                {
+                    message.Status = 0;
+                    message.Message = "Inactivate failed";
+                }
+            }
+            catch (Exception ex)
+            {
+                message.Status = 0;
+                message.Message = ex.Message;
+            }
+
+            return Ok(message);
+        }
+
+        [HttpPost("DeleteUserPermanent")]
+        public async Task<IActionResult> DeleteUserPermanent([FromBody] DeleteUserRequest request)
+        {
+            var message = new ReturnAPIResponse();
+
+            try
+            {
+                cf.SessionCheck();
+
+                if (request == null || request.Id <= 0)
+                {
+                    message.Status = 0;
+                    message.Message = "Invalid user id";
+                    return Ok(message);
+                }
+
+                var user = await db.tbl_user
+                                   .Where(x => x.id == request.Id)
+                                   .FirstOrDefaultAsync();
+
+                if (user == null)
+                {
+                    message.Status = 0;
+                    message.Message = "User not found";
+                    return Ok(message);
+                }
+
+                db.tbl_user.Remove(user);
+                var rows = await db.SaveChangesAsync();
+
+                if (rows > 0)
+                {
+                    message.Status = 1;
+                    message.Message = "User permanently deleted";
+                    message.token = cf.CreateToken(request.Ip);
+                }
+                else
+                {
+                    message.Status = 0;
+                    message.Message = "Permanent delete failed";
+                }
+            }
+            catch (Exception ex)
+            {
+                message.Status = 0;
+                message.Message = ex.Message;
+            }
+
+            return Ok(message);
+        }
         public class DeleteUserRequest
         {
             public int Id { get; set; }

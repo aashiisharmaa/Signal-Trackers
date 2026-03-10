@@ -1,20 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "D:\\Current\\Signal-Trackers\\SignalTracker.csproj": {}
+    "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\SignalTracker.csproj": {}
   },
   "projects": {
-    "D:\\Current\\Signal-Trackers\\SignalTracker.csproj": {
+    "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\SignalTracker.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\Current\\Signal-Trackers\\SignalTracker.csproj",
+        "projectUniqueName": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\SignalTracker.csproj",
         "projectName": "SignalTracker",
-        "projectPath": "D:\\Current\\Signal-Trackers\\SignalTracker.csproj",
-        "packagesPath": "C:\\Users\\adi thakur\\.nuget\\packages\\",
-        "outputPath": "D:\\Current\\Signal-Trackers\\obj\\",
+        "projectPath": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\SignalTracker.csproj",
+        "packagesPath": "C:\\Users\\Vinfocom\\.nuget\\packages\\",
+        "outputPath": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\adi thakur\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "C:\\Users\\Vinfocom\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net8.0"
@@ -139,7 +139,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.418/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.416/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

@@ -11,7 +11,9 @@ namespace SignalTracker.Services
         private readonly IConfiguration _configuration;
         private static readonly string[] MainDbOnlyAdminPaths = new[]
         {
-            "/admin/getusers",
+            // NOTE: /admin/getusers is intentionally excluded here so that TW users
+            // (country_code == "TW") correctly query the TW database for their user list.
+            // Write/mutate paths still stay on Main DB to avoid dual-write issues.
             "/admin/getuser",
             "/admin/getuserbyid",
             "/admin/saveuserdetails",
@@ -41,8 +43,11 @@ namespace SignalTracker.Services
                 return _configuration.GetConnectionString("MySqlConnection");
             }
 
-            // User management is always sourced from MainDB.
-            if (Array.Exists(MainDbOnlyAdminPaths, prefix => path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+            // User management write-paths are always sourced from MainDB.
+            // IMPORTANT: use exact equality (==) not StartsWith, because
+            // "/admin/getusers" would otherwise match the prefix "/admin/getuser"
+            // and get incorrectly pinned to Main DB.
+            if (Array.Exists(MainDbOnlyAdminPaths, p => string.Equals(path, p, StringComparison.OrdinalIgnoreCase)))
             {
                 return _configuration.GetConnectionString("MySqlConnection");
             }

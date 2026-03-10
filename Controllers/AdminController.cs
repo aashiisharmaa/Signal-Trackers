@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -423,68 +423,13 @@ private int GetTargetCompanyId(int? explicitCompanyId)
             var message = new ReturnAPIResponse();
             try
             {
-                int requestedCompanyId = company_id > 0 ? company_id : 0;
-                int targetCompanyId = 0;
-                bool isAuthorized = false;
-
-                var userTypeClaim = User.FindFirst("UserTypeId")?.Value ?? User.FindFirst("m_user_type_id")?.Value;
-                var companyClaim = User.FindFirst("CompanyId")?.Value;
-                int.TryParse(userTypeClaim, out var currentUserTypeId);
-                int.TryParse(companyClaim, out var claimCompanyId);
-
-                bool isSuperAdmin = currentUserTypeId == UserScopeService.ROLE_SUPER_ADMIN;
-
-                // Primary flow: logged-in cookie claims.
-                if (User?.Identity?.IsAuthenticated == true)
-                {
-                    isAuthorized = true;
-                    if (isSuperAdmin)
-                    {
-                        // Super admin can see all or a specific company if provided.
-                        targetCompanyId = requestedCompanyId;
-                    }
-                    else
-                    {
-                        // Admin/User can only see their own company users.
-                        targetCompanyId = claimCompanyId;
-                        if (targetCompanyId <= 0)
-                            isAuthorized = false;
-                    }
-                }
-
-                // Legacy flow: support token-based access if claims are unavailable.
-                if (!isAuthorized)
-                {
-                    string token = string.Empty;
-                    if (Request.Headers.ContainsKey("Authorization"))
-                    {
-                        token = Request.Headers["Authorization"].ToString();
-                        if (token.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-                            token = token.Substring(7).Trim();
-                    }
-
-                    if (string.IsNullOrEmpty(token) && Request.Query.ContainsKey("token"))
-                    {
-                        token = Request.Query["token"].ToString();
-                    }
-
-                    if (!string.IsNullOrEmpty(token))
-                    {
-                        var tokenUser = await db.tbl_user.AsNoTracking()
-                            .Where(u => u.token == token && u.isactive == 1)
-                            .Select(u => new { u.company_id, u.m_user_type_id })
-                            .FirstOrDefaultAsync();
-
-                        if (tokenUser != null)
-                        {
-                            isSuperAdmin = tokenUser.m_user_type_id == UserScopeService.ROLE_SUPER_ADMIN;
-                            targetCompanyId = isSuperAdmin ? requestedCompanyId : (tokenUser.company_id ?? 0);
-                            isAuthorized = isSuperAdmin || targetCompanyId > 0;
-                        }
-                    }
-                }
-
-                if (!isAuthorized)
+                // DbConnectionProvider already routes the request to the correct database:
+                //   TW login  (country_code=TW)  → MySqlConnection2 (TW DB)   → all TW users
+                //   Main login                   → MySqlConnection  (Main DB)  → all Main users
+                //
+                // The DB boundary IS the security boundary, so we only need an auth check.
+                // No role-based company scoping is applied here.
+                if (User?.Identity?.IsAuthenticated != true)
                 {
                     message.Status = 0;
                     message.Message = "Unauthorized access.";
@@ -493,13 +438,10 @@ private int GetTargetCompanyId(int? explicitCompanyId)
 
                 var query = db.tbl_user.AsNoTracking().AsQueryable();
 
-                if (!isSuperAdmin)
+                // Optional: narrow to a specific company only when the caller explicitly passes company_id.
+                if (company_id > 0)
                 {
-                    query = query.Where(u => u.company_id == targetCompanyId);
-                }
-                else if (targetCompanyId > 0)
-                {
-                    query = query.Where(u => u.company_id == targetCompanyId);
+                    query = query.Where(u => u.company_id == company_id);
                 }
 
                 if (!string.IsNullOrWhiteSpace(UserName))

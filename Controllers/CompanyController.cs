@@ -83,7 +83,7 @@ namespace SignalTracker.Controllers
         {
             try
             {
-                // 🔐 Security Check
+                // Security Check
                 if (!_userScope.IsSuperAdmin(User))
                 {
                     return StatusCode(403, new { Status = 0, Message = "Only Super Admin can create or update companies" });
@@ -302,10 +302,10 @@ else
     }
 
     // ==============================
-    // 🔥 LICENSE UPDATE LOGIC
+    //  LICENSE UPDATE LOGIC
     // ==============================
 
-    // 1️⃣ Update total granted licenses
+    // 1 Update total granted licenses
     if (request.total_granted_licenses >= 0)
     {
         if (request.total_granted_licenses < existingCompany.total_used_licenses)
@@ -320,7 +320,7 @@ else
         existingCompany.total_granted_licenses = request.total_granted_licenses;
     }
 
-    // 2️⃣ Update total used licenses
+    // 2️ Update total used licenses
     if (request.total_used_licenses >= 0)
     {
         if (request.total_used_licenses > existingCompany.total_granted_licenses)
@@ -362,14 +362,14 @@ else
         }
         // Delete Company 
         // ======================================================
-// 5️⃣ DELETE COMPANY (SOFT DELETE)
+// 5️ DELETE COMPANY (SOFT DELETE)
 // ======================================================
 [HttpDelete("deleteCompany")]
 public async Task<IActionResult> DeleteCompany([FromQuery] int id)
 {
     try
     {
-        // 🔐 Only Super Admin can delete
+        //  Only Super Admin can delete
         if (!_userScope.IsSuperAdmin(User))
         {
             return StatusCode(403, new
@@ -389,7 +389,7 @@ public async Task<IActionResult> DeleteCompany([FromQuery] int id)
             });
         }
 
-        // � Hard delete path: remove company and related data
+        //  Hard delete path: remove company and related data
         // Note: this permanently removes rows from the database.
 
         // 1) Remove related issued licenses
@@ -499,10 +499,10 @@ public async Task<IActionResult> GrantLicense([FromBody] GrantLicenseRequest req
 {
     try
     {
-        // 🔐 Resolve company scope (SuperAdmin vs Company Admin)
+        //  Resolve company scope (SuperAdmin vs Company Admin)
         int companyId = _userScope.GetTargetCompanyId(User, request.tbl_company_id);
 
-        // 🔍 Fetch company WITHOUT tracking status
+        //  Fetch company WITHOUT tracking status
         var company = await _db.tbl_company
             .Where(c => c.id == companyId)
             .Select(c => new
@@ -607,7 +607,7 @@ public async Task<IActionResult> GetUsedLicenses(
                 company_name = comp.company_name
             };
 
-        // 🔍 Filters
+        //  Filters
         if (!string.IsNullOrWhiteSpace(code))
             query = query.Where(x => x.license_code != null &&
                                      x.license_code.ToLower().Contains(code.ToLower()));
@@ -628,7 +628,7 @@ public async Task<IActionResult> GetUsedLicenses(
             query = query.Where(x => x.company_name != null &&
                                      x.company_name.ToLower().Contains(company.ToLower()));
 
-        // 🔐 Company scope enforcement
+        //  Company scope enforcement
         if (targetCompanyId > 0)
             query = query.Where(x => x.company_id == targetCompanyId);
 
@@ -669,10 +669,10 @@ public async Task<IActionResult> RevokeLicense([FromQuery] int licenseId)
 {
     try
     {
-        // 🔐 1. Resolve Company Context
+        //  1. Resolve Company Context
         int targetCompanyId = _userScope.GetTargetCompanyId(User, null);
 
-        // 🔍 2. Fetch the License
+        //  2. Fetch the License
         var license = await _db.tbl_company_user_license_issued
             .Where(l => l.id == licenseId)
             .Select(l => new
@@ -704,7 +704,7 @@ public async Task<IActionResult> RevokeLicense([FromQuery] int licenseId)
             });
         }
 
-        // 🔐 5. Security: Ensure Company Admin owns this license
+        // 999622222222222222222222222222222222222222222222222222222222222222222222222222 5. Security: Ensure Company Admin owns this license
         if (targetCompanyId > 0 && license.tbl_company_id != targetCompanyId)
         {
             return StatusCode(403, new { Status = 0, Message = "You are not authorized to revoke this license" });

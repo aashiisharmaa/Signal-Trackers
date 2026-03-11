@@ -2704,7 +2704,7 @@ ORDER BY p.timestamp;
 [HttpGet("GetN78Neighbours")]
 public async Task<IActionResult> GetN78Neighbours([FromQuery] string session_ids)
 {
-    // ================= 1. VALIDATION =================
+    // 1. Validation
     if (string.IsNullOrWhiteSpace(session_ids))
         return BadRequest(new { Status = 0, Message = "session_ids are required" });
 
@@ -2720,57 +2720,50 @@ public async Task<IActionResult> GetN78Neighbours([FromQuery] string session_ids
 
     string sessionCsv = string.Join(",", parsedIds);
 
-    // ================= 2. UPDATED SQL (Full Neighbor Details) =================
+    // 2. Updated SQL with Correct Aliases (Matching your DTO)
     var sql = $@"
-WITH RankedData AS (
+WITH PrimaryLogs AS (
     SELECT 
-        p.id,
-        p.session_id,
-        p.timestamp,
-        p.lat,
-        p.lon,
-        p.indoor_outdoor,
-        p.m_alpha_long AS provider,
-
-        -- Primary Side
-        p.network AS primary_network,
-        p.band    AS primary_band,
-        p.pci     AS primary_pci,
-        p.rsrp    AS primary_rsrp,
-        p.rsrq    AS primary_rsrq,
-        p.sinr    AS primary_sinr,
-        p.mos     AS mos,
-        CAST(NULLIF(p.dl_tpt, '') AS DECIMAL(12,4)) AS dl_tpt,
-        CAST(NULLIF(p.ul_tpt, '') AS DECIMAL(12,4)) AS ul_tpt,
-        
-        -- Neighbour Side (Added Technology, Provider, SINR, and Throughput)
-        n.network AS neighbour_network,
-        n.band    AS neighbour_band,
-        n.pci     AS neighbour_pci,
-        n.rsrp    AS neighbour_rsrp,
-        n.rsrq    AS neighbour_rsrq,
-        n.sinr    AS neighbour_sinr,
+        id, session_id, timestamp, lat, lon, indoor_outdoor, 
+        m_alpha_long AS provider,
+        network AS primary_network, 
+        band AS primary_band, 
+        pci AS primary_pci, 
+        rsrp AS primary_rsrp, 
+        rsrq AS primary_rsrq, 
+        sinr AS primary_sinr, 
+        mos,
+        CAST(NULLIF(dl_tpt, '') AS DECIMAL(12,4)) AS dl_tpt,
+        CAST(NULLIF(ul_tpt, '') AS DECIMAL(12,4)) AS ul_tpt
+    FROM tbl_network_log
+    WHERE session_id IN ({sessionCsv}) AND `primary` = 'yes'
+),
+JoinedData AS (
+    SELECT 
+        p.*,
+        n.network AS neighbour_network, 
+        n.band AS neighbour_band, 
+        n.pci AS neighbour_pci,
+        n.rsrp AS neighbour_rsrp, 
+        n.rsrq AS neighbour_rsrq, 
+        n.sinr AS neighbour_sinr,
         n.m_alpha_long AS neighbour_provider,
         CAST(NULLIF(n.dl_tpt, '') AS DECIMAL(12,4)) AS neighbour_dl_tpt,
         CAST(NULLIF(n.ul_tpt, '') AS DECIMAL(12,4)) AS neighbour_ul_tpt,
-
         ROW_NUMBER() OVER (
-            PARTITION BY p.session_id, p.lat, p.lon 
+            PARTITION BY p.id 
             ORDER BY CAST(n.rsrp AS SIGNED) DESC
         ) AS rn
-    FROM tbl_network_log p
+    FROM PrimaryLogs p
     INNER JOIN tbl_network_log_neighbour n 
-        ON p.lat = n.lat
+        ON p.session_id = n.session_id 
+        AND p.lat = n.lat 
         AND p.lon = n.lon
-        AND p.session_id = n.session_id
-    WHERE p.session_id IN ({sessionCsv})
-      AND p.primary = 'yes'
-      AND (
-          -- Crossover Logic (4G Primary -> 5G Neighbor OR 5G Primary -> 4G Neighbor)
-          ((p.network LIKE '%4G%' OR p.network LIKE '%LTE%') AND (n.network LIKE '%5G%' OR n.network LIKE '%NR%'))
+    WHERE (
+          ((p.primary_network LIKE '%4G%' OR p.primary_network LIKE '%LTE%') AND (n.network LIKE '%5G%' OR n.network LIKE '%NR%'))
           OR 
-          ((p.network LIKE '%5G%' OR p.network LIKE '%NR%') AND (n.network LIKE '%4G%' OR n.network LIKE '%LTE%'))
-      )
+          ((p.primary_network LIKE '%5G%' OR p.primary_network LIKE '%NR%') AND (n.network LIKE '%4G%' OR n.network LIKE '%LTE%'))
+    )
 )
 SELECT 
     id, session_id, timestamp, lat, lon, indoor_outdoor, provider,
@@ -2778,11 +2771,11 @@ SELECT
     mos, dl_tpt, ul_tpt,
     neighbour_network, neighbour_band, neighbour_pci, neighbour_rsrp, neighbour_rsrq, 
     neighbour_sinr, neighbour_provider, neighbour_dl_tpt, neighbour_ul_tpt
-FROM RankedData 
+FROM JoinedData 
 WHERE rn = 1 
 ORDER BY timestamp;";
 
-    // ================= 3. DB EXECUTION =================
+    // 3. Execution
     var data = await db.LTE5GNeighbourDto
         .FromSqlRaw(sql)
         .AsNoTracking()
@@ -2796,9 +2789,6 @@ ORDER BY timestamp;";
         Data = data
     });
 }
-
-
-
 
 
 // [HttpGet("Get4GWith5GNeighbours")]

@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;     // for Regex
@@ -2704,7 +2704,7 @@ ORDER BY p.timestamp;
 [HttpGet("GetN78Neighbours")]
 public async Task<IActionResult> GetN78Neighbours([FromQuery] string session_ids)
 {
-    // 1. Validation
+    // ================= 1. VALIDATION =================
     if (string.IsNullOrWhiteSpace(session_ids))
         return BadRequest(new { Status = 0, Message = "session_ids are required" });
 
@@ -2719,8 +2719,31 @@ public async Task<IActionResult> GetN78Neighbours([FromQuery] string session_ids
         return BadRequest(new { Status = 0, Message = "No valid session_ids" });
 
     string sessionCsv = string.Join(",", parsedIds);
+    string cacheKey = $"n78_neighbours:{sessionCsv}";
 
-    // 2. Updated SQL with Correct Aliases (Matching your DTO)
+    // ================= 2. REDIS READ =================
+    if (_redis != null && _redis.IsConnected)
+    {
+        try
+        {
+            var cached = await _redis.GetObjectAsync<List<LTE5GNeighbourDto>>(cacheKey);
+            if (cached != null)
+            {
+                Response.Headers["X-Cache"] = "HIT";
+                return Ok(new
+                {
+                    Status = 1,
+                    Cached = true,
+                    SessionCount = parsedIds.Count,
+                    RecordCount = cached.Count,
+                    Data = cached
+                });
+            }
+        }
+        catch { /* Redis unavailable — fall through to DB */ }
+    }
+
+    // ================= 3. RAW SQL (all processing in DB via CTE) =================
     var sql = $@"
 WITH PrimaryLogs AS (
     SELECT 
@@ -2775,15 +2798,83 @@ FROM JoinedData
 WHERE rn = 1 
 ORDER BY timestamp;";
 
-    // 3. Execution
-    var data = await db.LTE5GNeighbourDto
-        .FromSqlRaw(sql)
-        .AsNoTracking()
-        .ToListAsync();
+    // ================= 4. RAW ADO.NET READ — fetch raw rows from DB =================
+    var data = new List<LTE5GNeighbourDto>();
+
+    var conn = db.Database.GetDbConnection();
+    bool shouldClose = false;
+    try
+    {
+        if (conn.State != System.Data.ConnectionState.Open)
+        {
+            await conn.OpenAsync();
+            shouldClose = true;
+        }
+
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = sql;
+        cmd.CommandTimeout = 120;
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            // ========= Backend processing: all type conversions done here =========
+            data.Add(new LTE5GNeighbourDto
+            {
+                // --- Identity ---
+                id           = reader.IsDBNull(0)  ? 0 : reader.GetInt32(0),
+                session_id   = reader.IsDBNull(1)  ? 0 : reader.GetInt32(1),
+                timestamp    = reader.IsDBNull(2)  ? default : reader.GetDateTime(2),
+                lat          = reader.IsDBNull(3)  ? 0d : Convert.ToDouble(reader.GetValue(3)),
+                lon          = reader.IsDBNull(4)  ? 0d : Convert.ToDouble(reader.GetValue(4)),
+                indoor_outdoor = reader.IsDBNull(5) ? null : reader.GetString(5),
+                provider       = reader.IsDBNull(6) ? null : reader.GetString(6),
+
+                // --- Primary KPIs (float? in DB → double? in DTO) ---
+                primary_network = reader.IsDBNull(7)  ? null : reader.GetString(7),
+                primary_band    = reader.IsDBNull(8)  ? null : reader.GetString(8),
+                primary_pci     = reader.IsDBNull(9)  ? null : reader.GetString(9),
+                primary_rsrp    = reader.IsDBNull(10) ? null : (double?)Convert.ToDouble(reader.GetValue(10)),
+                primary_rsrq    = reader.IsDBNull(11) ? null : (double?)Convert.ToDouble(reader.GetValue(11)),
+                primary_sinr    = reader.IsDBNull(12) ? null : (double?)Convert.ToDouble(reader.GetValue(12)),
+                mos             = reader.IsDBNull(13) ? null : (double?)Convert.ToDouble(reader.GetValue(13)),
+
+                // --- Throughput (DECIMAL(12,4) from CAST in SQL → decimal? in DTO) ---
+                dl_tpt = reader.IsDBNull(14) ? null : (decimal?)Convert.ToDecimal(reader.GetValue(14)),
+                ul_tpt = reader.IsDBNull(15) ? null : (decimal?)Convert.ToDecimal(reader.GetValue(15)),
+
+                // --- Neighbour KPIs (float? in DB → double? in DTO) ---
+                neighbour_network  = reader.IsDBNull(16) ? null : reader.GetString(16),
+                neighbour_band     = reader.IsDBNull(17) ? null : reader.GetString(17),
+                neighbour_pci      = reader.IsDBNull(18) ? null : reader.GetString(18),
+                neighbour_rsrp     = reader.IsDBNull(19) ? null : (double?)Convert.ToDouble(reader.GetValue(19)),
+                neighbour_rsrq     = reader.IsDBNull(20) ? null : (double?)Convert.ToDouble(reader.GetValue(20)),
+                neighbour_sinr     = reader.IsDBNull(21) ? null : (double?)Convert.ToDouble(reader.GetValue(21)),
+                neighbour_provider = reader.IsDBNull(22) ? null : reader.GetString(22),
+                neighbour_dl_tpt   = reader.IsDBNull(23) ? null : (decimal?)Convert.ToDecimal(reader.GetValue(23)),
+                neighbour_ul_tpt   = reader.IsDBNull(24) ? null : (decimal?)Convert.ToDecimal(reader.GetValue(24)),
+            });
+        }
+    }
+    finally
+    {
+        if (shouldClose && conn.State == System.Data.ConnectionState.Open)
+            await conn.CloseAsync();
+    }
+
+    // ================= 5. REDIS WRITE =================
+    if (_redis != null && _redis.IsConnected)
+    {
+        try { await _redis.SetObjectAsync(cacheKey, data, ttlSeconds: 300); }
+        catch { /* best-effort cache — don't fail the request */ }
+    }
+
+    Response.Headers["X-Cache"] = "MISS";
 
     return Ok(new
     {
         Status = 1,
+        Cached = false,
         SessionCount = parsedIds.Count,
         RecordCount = data.Count,
         Data = data

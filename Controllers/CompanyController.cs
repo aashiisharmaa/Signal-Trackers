@@ -404,7 +404,14 @@ public async Task<IActionResult> DeleteCompany([FromQuery] int id)
               WHERE tbl_company_id = {0}",
             id);
 
-        // 3) Remove related users
+        // 3) Remove sessions for users of this company (FK: tbl_session.user_id -> tbl_user.id)
+        await _db.Database.ExecuteSqlRawAsync(
+            @"DELETE s FROM tbl_session s
+              INNER JOIN tbl_user u ON s.user_id = u.id
+              WHERE u.company_id = {0}",
+            id);
+
+        // 4) Remove related users
         await _db.Database.ExecuteSqlRawAsync(
             @"DELETE FROM tbl_user
               WHERE company_id = {0}",

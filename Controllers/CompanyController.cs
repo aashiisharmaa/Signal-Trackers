@@ -35,7 +35,7 @@ namespace SignalTracker.Controllers
                 var query = _db.tbl_company.AsNoTracking().AsQueryable();
 
                 // Exclude soft-deleted companies
-                query = query.Where(c => c.status != 0);
+               // query = query.Where(c => c.status != 0);
 
                 if (targetCompanyId > 0)
                 {

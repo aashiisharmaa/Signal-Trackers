@@ -34,6 +34,9 @@ namespace SignalTracker.Controllers
                 int targetCompanyId = _userScope.GetTargetCompanyId(User, id);
                 var query = _db.tbl_company.AsNoTracking().AsQueryable();
 
+                // Exclude soft-deleted companies
+                query = query.Where(c => c.status != 0);
+
                 if (targetCompanyId > 0)
                 {
                     query = query.Where(c => c.id == targetCompanyId);
@@ -386,8 +389,29 @@ public async Task<IActionResult> DeleteCompany([FromQuery] int id)
             });
         }
 
-        // 🔒 Soft delete
-        company.status = 0;
+        // � Hard delete path: remove company and related data
+        // Note: this permanently removes rows from the database.
+
+        // 1) Remove related issued licenses
+        await _db.Database.ExecuteSqlRawAsync(
+            @"DELETE FROM tbl_company_user_license_issued
+              WHERE tbl_company_id = {0}",
+            id);
+
+        // 2) Remove related license grant history (optional, but keeps data clean)
+        await _db.Database.ExecuteSqlRawAsync(
+            @"DELETE FROM tbl_company_license_grant_history
+              WHERE tbl_company_id = {0}",
+            id);
+
+        // 3) Remove related users
+        await _db.Database.ExecuteSqlRawAsync(
+            @"DELETE FROM tbl_user
+              WHERE company_id = {0}",
+            id);
+
+        // 4) Remove the company itself
+        _db.tbl_company.Remove(company);
         await _db.SaveChangesAsync();
 
         return Ok(new

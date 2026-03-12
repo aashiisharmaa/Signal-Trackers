@@ -1,13 +1,15 @@
-﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SignalTracker.Helper;
 using SignalTracker.Models;
+using Microsoft.AspNetCore.Authorization;
 
 namespace SignalTracker.Controllers
 {
     
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class SettingController : ControllerBase
     {
         private readonly ApplicationDbContext db;
@@ -37,13 +39,14 @@ namespace SignalTracker.Controllers
         /// <summary>
         /// Get threshold settings for logged-in user (or default).
         /// </summary>
-        [HttpGet("GetThresholdSettings")]
+[HttpGet("GetThresholdSettings")]
 public IActionResult GetThresholdSettings()
 {
     var response = new ReturnAPIResponse();
 
     try
     {
+        cf.SessionCheck();
         int uid = cf.UserId;
 
         // 1️⃣ User-specific threshold (highest priority)
@@ -106,6 +109,7 @@ public IActionResult SaveThreshold([FromBody] thresholds model)
 
     try
     {
+        cf.SessionCheck();
         int uid = cf.UserId;
 
         var existing = db.thresholds

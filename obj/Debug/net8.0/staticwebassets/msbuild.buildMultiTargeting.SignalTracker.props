@@ -1,3 +1,3 @@
 ﻿<Project>
-  <Import Project="..\build\SignalTracker.props" />
+  <Import Project="../build/SignalTracker.props" />
 </Project>

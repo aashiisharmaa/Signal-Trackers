@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "zg1bTANkZCKO2d1NPLqeSMw2iAalzSo7KCAr7IprhrE=",
+  "Hash": "UsjDpK/VKruv9eVrOoHnAY+ahXimlHiV8VvWTHTMd4U=",
   "Source": "SignalTracker",
   "BasePath": "_content/SignalTracker",
   "Mode": "Default",
@@ -8,19 +8,19 @@
   "ReferencedProjectsConfiguration": [],
   "DiscoveryPatterns": [
     {
-      "Name": "SignalTracker\\wwwroot",
+      "Name": "SignalTracker/wwwroot",
       "Source": "SignalTracker",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "Pattern": "**"
     }
   ],
   "Assets": [
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\content\\angular-moment-picker.css",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/content/angular-moment-picker.css",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "content/angular-moment-picker.css",
       "AssetKind": "All",
@@ -33,13 +33,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\content\\angular-moment-picker.css"
+      "OriginalItemSpec": "wwwroot/content/angular-moment-picker.css"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\content\\custom.min.css",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/content/custom.min.css",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "content/custom.min.css",
       "AssetKind": "All",
@@ -52,13 +52,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\content\\custom.min.css"
+      "OriginalItemSpec": "wwwroot/content/custom.min.css"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\content\\jquery.alerts.css",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/content/jquery.alerts.css",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "content/jquery.alerts.css",
       "AssetKind": "All",
@@ -71,13 +71,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\content\\jquery.alerts.css"
+      "OriginalItemSpec": "wwwroot/content/jquery.alerts.css"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\content\\ng-modal.css",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/content/ng-modal.css",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "content/ng-modal.css",
       "AssetKind": "All",
@@ -90,13 +90,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\content\\ng-modal.css"
+      "OriginalItemSpec": "wwwroot/content/ng-modal.css"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\css\\apex-charts.css",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/css/apex-charts.css",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "css/apex-charts.css",
       "AssetKind": "All",
@@ -109,13 +109,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\css\\apex-charts.css"
+      "OriginalItemSpec": "wwwroot/css/apex-charts.css"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\css\\api.min.css",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/css/api.min.css",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "css/api.min.css",
       "AssetKind": "All",
@@ -128,13 +128,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\css\\api.min.css"
+      "OriginalItemSpec": "wwwroot/css/api.min.css"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\css\\card-analytics.css",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/css/card-analytics.css",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "css/card-analytics.css",
       "AssetKind": "All",
@@ -147,13 +147,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\css\\card-analytics.css"
+      "OriginalItemSpec": "wwwroot/css/card-analytics.css"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\css\\core.css",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/css/core.css",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "css/core.css",
       "AssetKind": "All",
@@ -166,13 +166,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\css\\core.css"
+      "OriginalItemSpec": "wwwroot/css/core.css"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\css\\demo.css",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/css/demo.css",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "css/demo.css",
       "AssetKind": "All",
@@ -185,13 +185,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\css\\demo.css"
+      "OriginalItemSpec": "wwwroot/css/demo.css"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\css\\iconify-icons.css",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/css/iconify-icons.css",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "css/iconify-icons.css",
       "AssetKind": "All",
@@ -204,13 +204,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\css\\iconify-icons.css"
+      "OriginalItemSpec": "wwwroot/css/iconify-icons.css"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\css\\perfect-scrollbar.css",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/css/perfect-scrollbar.css",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "css/perfect-scrollbar.css",
       "AssetKind": "All",
@@ -223,13 +223,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\css\\perfect-scrollbar.css"
+      "OriginalItemSpec": "wwwroot/css/perfect-scrollbar.css"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\css\\pickr-themes.css",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/css/pickr-themes.css",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "css/pickr-themes.css",
       "AssetKind": "All",
@@ -242,13 +242,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\css\\pickr-themes.css"
+      "OriginalItemSpec": "wwwroot/css/pickr-themes.css"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\css\\vendor-style.css",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/css/vendor-style.css",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "css/vendor-style.css",
       "AssetKind": "All",
@@ -261,13 +261,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\css\\vendor-style.css"
+      "OriginalItemSpec": "wwwroot/css/vendor-style.css"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\css\\vendor-style.min.css",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/css/vendor-style.min.css",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "css/vendor-style.min.css",
       "AssetKind": "All",
@@ -280,13 +280,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\css\\vendor-style.min.css"
+      "OriginalItemSpec": "wwwroot/css/vendor-style.min.css"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\favicon.ico",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/favicon.ico",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "favicon.ico",
       "AssetKind": "All",
@@ -299,13 +299,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\favicon.ico"
+      "OriginalItemSpec": "wwwroot/favicon.ico"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\admin-bundle.js",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/js/admin-bundle.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/admin-bundle.js",
       "AssetKind": "All",
@@ -318,13 +318,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\js\\admin-bundle.js"
+      "OriginalItemSpec": "wwwroot/js/admin-bundle.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\apexcharts.js",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/js/apexcharts.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/apexcharts.js",
       "AssetKind": "All",
@@ -337,13 +337,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\js\\apexcharts.js"
+      "OriginalItemSpec": "wwwroot/js/apexcharts.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\api.min.js",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/js/api.min.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/api.min.js",
       "AssetKind": "All",
@@ -356,13 +356,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\js\\api.min.js"
+      "OriginalItemSpec": "wwwroot/js/api.min.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\app-ecommerce-dashboard.js",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/js/app-ecommerce-dashboard.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/app-ecommerce-dashboard.js",
       "AssetKind": "All",
@@ -375,13 +375,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\js\\app-ecommerce-dashboard.js"
+      "OriginalItemSpec": "wwwroot/js/app-ecommerce-dashboard.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\autocomplete-js.js",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/js/autocomplete-js.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/autocomplete-js.js",
       "AssetKind": "All",
@@ -394,13 +394,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\js\\autocomplete-js.js"
+      "OriginalItemSpec": "wwwroot/js/autocomplete-js.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\bootstrap.js",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/js/bootstrap.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/bootstrap.js",
       "AssetKind": "All",
@@ -413,13 +413,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\js\\bootstrap.js"
+      "OriginalItemSpec": "wwwroot/js/bootstrap.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\config.js",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/js/config.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/config.js",
       "AssetKind": "All",
@@ -432,13 +432,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\js\\config.js"
+      "OriginalItemSpec": "wwwroot/js/config.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\gtm.js",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/js/gtm.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/gtm.js",
       "AssetKind": "All",
@@ -451,13 +451,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\js\\gtm.js"
+      "OriginalItemSpec": "wwwroot/js/gtm.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\hammer.js",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/js/hammer.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/hammer.js",
       "AssetKind": "All",
@@ -470,13 +470,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\js\\hammer.js"
+      "OriginalItemSpec": "wwwroot/js/hammer.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\helpers.js",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/js/helpers.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/helpers.js",
       "AssetKind": "All",
@@ -489,13 +489,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\js\\helpers.js"
+      "OriginalItemSpec": "wwwroot/js/helpers.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\i18n.js",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/js/i18n.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/i18n.js",
       "AssetKind": "All",
@@ -508,13 +508,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\js\\i18n.js"
+      "OriginalItemSpec": "wwwroot/js/i18n.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\jquery.js",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/js/jquery.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/jquery.js",
       "AssetKind": "All",
@@ -527,13 +527,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\js\\jquery.js"
+      "OriginalItemSpec": "wwwroot/js/jquery.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\main.js",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/js/main.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/main.js",
       "AssetKind": "All",
@@ -546,13 +546,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\js\\main.js"
+      "OriginalItemSpec": "wwwroot/js/main.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\menu.js",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/js/menu.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/menu.js",
       "AssetKind": "All",
@@ -565,13 +565,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\js\\menu.js"
+      "OriginalItemSpec": "wwwroot/js/menu.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\perfect-scrollbar.js",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/js/perfect-scrollbar.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/perfect-scrollbar.js",
       "AssetKind": "All",
@@ -584,13 +584,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\js\\perfect-scrollbar.js"
+      "OriginalItemSpec": "wwwroot/js/perfect-scrollbar.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\pickr.js",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/js/pickr.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/pickr.js",
       "AssetKind": "All",
@@ -603,13 +603,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\js\\pickr.js"
+      "OriginalItemSpec": "wwwroot/js/pickr.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\popper.js",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/js/popper.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/popper.js",
       "AssetKind": "All",
@@ -622,13 +622,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\js\\popper.js"
+      "OriginalItemSpec": "wwwroot/js/popper.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\template-customizer.js",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/js/template-customizer.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/template-customizer.js",
       "AssetKind": "All",
@@ -641,13 +641,13 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\js\\template-customizer.js"
+      "OriginalItemSpec": "wwwroot/js/template-customizer.js"
     },
     {
-      "Identity": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\js\\vendor-bundle.js",
+      "Identity": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/js/vendor-bundle.js",
       "SourceId": "SignalTracker",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\SignalTracker\\SignalTrackers (4)h\\SignalTrackers\\wwwroot\\",
+      "ContentRoot": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/wwwroot/",
       "BasePath": "_content/SignalTracker",
       "RelativePath": "js/vendor-bundle.js",
       "AssetKind": "All",
@@ -660,7 +660,7 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\js\\vendor-bundle.js"
+      "OriginalItemSpec": "wwwroot/js/vendor-bundle.js"
     }
   ]
 }

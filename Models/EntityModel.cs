@@ -216,6 +216,9 @@ public class tbl_company_license_grant_history
 
         public  int  per_license_rate { get; set; }
 
+        [NotMapped]
+        public string? license_code { get; set; }
+
         public string? remarks { get; set; }
 
         public DateTime date_time { get; set; }

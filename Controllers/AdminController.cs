@@ -451,10 +451,26 @@ private int GetTargetCompanyId(int? explicitCompanyId)
                 if (!string.IsNullOrWhiteSpace(Mobile))
                     query = query.Where(a => EF.Functions.Like(a.mobile, $"%{Mobile}%"));
 
+                // Latest license code per company from issued licenses
+                var latestLicenseCodes = db.tbl_company_user_license_issued
+                    .AsNoTracking()
+                    .GroupBy(h => h.tbl_company_id)
+                    .Select(g => new
+                    {
+                        CompanyId = g.Key,
+                        LicenseCode = g.OrderByDescending(h => h.created_on)
+                                       .Select(h => h.license_code)
+                                       .FirstOrDefault()
+                    });
+
                 var result = await query
                     .OrderBy(a => a.name)
                     .Select(u => new
                     {
+                        license_code = latestLicenseCodes
+                            .Where(l => l.CompanyId == u.company_id)
+                            .Select(l => l.LicenseCode)
+                            .FirstOrDefault(),
                         ob_user = new tbl_user
                         {
                             id = u.id,

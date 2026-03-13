@@ -298,7 +298,18 @@ else
     // ==============================
     if (!string.IsNullOrEmpty(request.password))
     {
-        existingCompany.password = Sha256Hash(request.password);
+        var hashedPassword = Sha256Hash(request.password);
+        existingCompany.password = hashedPassword;
+
+        // Keep the default company admin user in sync with company password
+        var adminUsers = await _db.tbl_user
+            .Where(u => u.company_id == existingCompany.id && u.m_user_type_id == 2)
+            .ToListAsync();
+
+        foreach (var u in adminUsers)
+        {
+            u.password = hashedPassword;
+        }
     }
 
     // ==============================

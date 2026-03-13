@@ -759,27 +759,23 @@ public async Task<IActionResult> GetAvailablePolygons(
     int targetCompanyId = 0;
     bool isSuperAdmin = _userScope.IsSuperAdmin(User);
 
-    if (isSuperAdmin)
+    // Prefer explicit company_id for super admins; otherwise use claim company_id.
+    var claim = User.Claims.FirstOrDefault(c =>
+        c.Type.Equals("company_id", StringComparison.OrdinalIgnoreCase) ||
+        c.Type.Equals("CompanyId", StringComparison.OrdinalIgnoreCase));
+    int claimCompanyId = (claim != null && int.TryParse(claim.Value, out var cId)) ? cId : 0;
+
+    if (isSuperAdmin && company_id.HasValue && company_id.Value > 0)
     {
-        targetCompanyId = company_id ?? 0;
+        targetCompanyId = company_id.Value;
     }
     else
     {
-        // Regular Admin: Force Company ID resolution
-        try { targetCompanyId = GetTargetCompanyId(null); } catch { }
-
-        // Fallback to claims
-        if (targetCompanyId == 0)
-        {
-            var claim = User.Claims.FirstOrDefault(c => 
-                c.Type.Equals("company_id", StringComparison.OrdinalIgnoreCase) || 
-                c.Type.Equals("CompanyId", StringComparison.OrdinalIgnoreCase));
-            if (claim != null && int.TryParse(claim.Value, out int cId)) targetCompanyId = cId;
-        }
-
-        if (targetCompanyId == 0)
-            return Unauthorized(new { Status = 0, Message = "Unauthorized. Unable to resolve Company Context." });
+        targetCompanyId = claimCompanyId;
     }
+
+    if (targetCompanyId == 0)
+        return Unauthorized(new { Status = 0, Message = "Unauthorized. Unable to resolve Company Context." });
 
     // =========================================================
     // 2. VALIDATE SPECIFIC SESSION OWNERSHIP (FIXED)
@@ -860,8 +856,6 @@ public async Task<IActionResult> GetAvailablePolygons(
                 // SECURE PATH: Company Admin requesting ALL
                 whereClause = @"
                     (
-                        (session_id IS NULL OR session_id = '')
-                        OR 
                         EXISTS (
                             SELECT 1 FROM tbl_session s
                             JOIN tbl_user u ON s.user_id = u.id

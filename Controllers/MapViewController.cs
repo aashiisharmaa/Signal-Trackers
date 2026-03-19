@@ -687,6 +687,129 @@ public class ProjectPolygonItem
             public object? Data { get; set; }
         }
 
+        private sealed class SubSessionAnalyticsAccumulator
+        {
+            private sealed class SubSessionLocation
+            {
+                public int SubSessionId { get; set; }
+                public float? StartLat { get; set; }
+                public float? StartLon { get; set; }
+                public float? EndLat { get; set; }
+                public float? EndLon { get; set; }
+            }
+
+            public int SessionId { get; set; }
+            public float? StartLat { get; set; }
+            public float? StartLon { get; set; }
+            public float? EndLat { get; set; }
+            public float? EndLon { get; set; }
+            public HashSet<int> SubSessionIds { get; } = new();
+            private Dictionary<int, SubSessionLocation> SubSessionLocationMap { get; } = new();
+            public double TotalDuration { get; private set; }
+            public int DurationCount { get; private set; }
+            public double TotalSpeed { get; private set; }
+            public int SpeedCount { get; private set; }
+            public double TotalFileSize { get; private set; }
+            public int FileSizeCount { get; private set; }
+
+            public void AddSubSession(long? subSessionId)
+            {
+                if (subSessionId.HasValue && subSessionId.Value >= int.MinValue && subSessionId.Value <= int.MaxValue)
+                {
+                    SubSessionIds.Add((int)subSessionId.Value);
+                }
+            }
+
+            public void AddMetrics(double? durationMs, double? speedKbps, double? fileSizeBytes)
+            {
+                if (durationMs.HasValue)
+                {
+                    TotalDuration += durationMs.Value;
+                    DurationCount++;
+                }
+
+                if (speedKbps.HasValue)
+                {
+                    TotalSpeed += speedKbps.Value;
+                    SpeedCount++;
+                }
+
+                if (fileSizeBytes.HasValue)
+                {
+                    TotalFileSize += fileSizeBytes.Value;
+                    FileSizeCount++;
+                }
+            }
+
+            public void AddSubSessionLocation(long? subSessionId, float? startLat, float? startLon, float? endLat, float? endLon)
+            {
+                if (!subSessionId.HasValue || subSessionId.Value < int.MinValue || subSessionId.Value > int.MaxValue)
+                {
+                    return;
+                }
+
+                var key = (int)subSessionId.Value;
+                if (SubSessionLocationMap.TryGetValue(key, out var existing))
+                {
+                    existing.StartLat ??= startLat;
+                    existing.StartLon ??= startLon;
+                    existing.EndLat ??= endLat;
+                    existing.EndLon ??= endLon;
+                    return;
+                }
+
+                SubSessionLocationMap[key] = new SubSessionLocation
+                {
+                    SubSessionId = key,
+                    StartLat = startLat,
+                    StartLon = startLon,
+                    EndLat = endLat,
+                    EndLon = endLon
+                };
+            }
+
+            public object ToResponse()
+            {
+                var subSessions = SubSessionLocationMap.Values
+                    .OrderBy(x => x.SubSessionId)
+                    .Select(x => new
+                    {
+                        sub_session_id = x.SubSessionId,
+                        coordinates = new
+                        {
+                            start_lat = x.StartLat,
+                            start_lon = x.StartLon,
+                            end_lat = x.EndLat,
+                            end_lon = x.EndLon
+                        }
+                    })
+                    .ToList();
+
+                return new
+                {
+                    session_id = SessionId,
+                    coordinates = new
+                    {
+                        start_lat = StartLat,
+                        start_lon = StartLon,
+                        end_lat = EndLat,
+                        end_lon = EndLon
+                    },
+                    sub_session_count = SubSessionIds.Count,
+                    sub_sessions = subSessions,
+                    metrics = new
+                    {
+                        total_duration = RoundMetric(TotalDuration),
+                        avg_duration = DurationCount > 0 ? RoundMetric(TotalDuration / DurationCount) : 0d,
+                        total_speed = RoundMetric(TotalSpeed),
+                        avg_speed = SpeedCount > 0 ? RoundMetric(TotalSpeed / SpeedCount) : 0d,
+                        total_file_size = RoundMetric(TotalFileSize),
+                        avg_file_size = FileSizeCount > 0 ? RoundMetric(TotalFileSize / FileSizeCount) : 0d
+                    }
+                };
+            }
+        }
+
         [HttpPost("SavePolygon")]
         public async Task<JsonResult> SavePolygon([FromBody] SavePolygonModel model)
         {
@@ -896,6 +1019,7 @@ public async Task<IActionResult> GetAvailablePolygons(
                 });
             }
         }
+
         finally
         {
             if (shouldClose && conn.State == ConnectionState.Open)
@@ -928,6 +1052,175 @@ public async Task<IActionResult> GetAvailablePolygons(
     }
 }
 
+        [HttpGet, Route("GetSubSessionAnalytics")]
+        public async Task<IActionResult> GetSubSessionAnalytics(
+            [FromQuery] int? sessionId = null,
+            [FromQuery] string? sessionIds = null,
+            [FromQuery(Name = "session_ids")] string? sessionIdsAlt = null)
+        {
+            try
+            {
+                var requestedSessionIds = new List<int>();
+
+                if (sessionId.HasValue && sessionId.Value > 0)
+                {
+                    requestedSessionIds.Add(sessionId.Value);
+                }
+
+                requestedSessionIds.AddRange(ParseCsvToIntList(sessionIds));
+                requestedSessionIds.AddRange(ParseCsvToIntList(sessionIdsAlt));
+                requestedSessionIds = requestedSessionIds
+                    .Where(x => x > 0)
+                    .Distinct()
+                    .OrderBy(x => x)
+                    .ToList();
+
+                if ((sessionId.HasValue || !string.IsNullOrWhiteSpace(sessionIds) || !string.IsNullOrWhiteSpace(sessionIdsAlt))
+                    && requestedSessionIds.Count == 0)
+                {
+                    return BadRequest(new { message = "Provide a valid sessionId or comma-separated sessionIds/session_ids." });
+                }
+
+                var sql = @"
+                    SELECT
+                        session_id,
+                        sub_session_id,
+                        start_lat,
+                        start_lon,
+                        end_lat,
+                        end_lon,
+                        CASE
+                            WHEN JSON_VALID(json_data) THEN JSON_UNQUOTE(JSON_EXTRACT(json_data, '$.duration_ms'))
+                            ELSE NULL
+                        END AS duration_ms,
+                        CASE
+                            WHEN JSON_VALID(json_data) THEN JSON_UNQUOTE(JSON_EXTRACT(json_data, '$.speed_kbps'))
+                            ELSE NULL
+                        END AS speed_kbps,
+                        CASE
+                            WHEN JSON_VALID(json_data) THEN JSON_UNQUOTE(JSON_EXTRACT(json_data, '$.file_size_bytes'))
+                            ELSE NULL
+                        END AS file_size_bytes
+                    FROM tbl_sub_session
+                    WHERE session_id IS NOT NULL
+                      AND JSON_VALID(json_data)
+                      AND JSON_UNQUOTE(JSON_EXTRACT(json_data, '$.result_status')) = 'SUCCESS'";
+
+                if (requestedSessionIds.Count > 0)
+                {
+                    sql += $" AND session_id IN ({string.Join(", ", requestedSessionIds.Select((_, i) => $"@sid{i}"))})";
+                }
+
+                sql += ";";
+
+                var sessionMap = new Dictionary<int, SubSessionAnalyticsAccumulator>();
+                var overall = new SubSessionAnalyticsAccumulator();
+
+                var conn = db.Database.GetDbConnection();
+                if (conn.State != ConnectionState.Open)
+                {
+                    await conn.OpenAsync();
+                }
+
+                await using var cmd = conn.CreateCommand();
+                cmd.CommandText = sql;
+
+                for (var i = 0; i < requestedSessionIds.Count; i++)
+                {
+                    AddParam(cmd, $"@sid{i}", requestedSessionIds[i]);
+                }
+
+                {
+                    await using var reader = await cmd.ExecuteReaderAsync();
+                    while (await reader.ReadAsync())
+                    {
+                        if (reader.IsDBNull(0))
+                        {
+                            continue;
+                        }
+
+                        var currentSessionId = reader.GetInt32(0);
+                        long? subSessionId = reader.IsDBNull(1) ? null : reader.GetInt64(1);
+                        float? subSessionStartLat = TryParseNullableFloat(reader.IsDBNull(2) ? null : reader.GetValue(2)?.ToString());
+                        float? subSessionStartLon = TryParseNullableFloat(reader.IsDBNull(3) ? null : reader.GetValue(3)?.ToString());
+                        float? subSessionEndLat = TryParseNullableFloat(reader.IsDBNull(4) ? null : reader.GetValue(4)?.ToString());
+                        float? subSessionEndLon = TryParseNullableFloat(reader.IsDBNull(5) ? null : reader.GetValue(5)?.ToString());
+                        var durationMs = TryParseNullableDouble(reader.IsDBNull(6) ? null : reader.GetValue(6)?.ToString());
+                        var speedKbps = TryParseNullableDouble(reader.IsDBNull(7) ? null : reader.GetValue(7)?.ToString());
+                        var fileSizeBytes = TryParseNullableDouble(reader.IsDBNull(8) ? null : reader.GetValue(8)?.ToString());
+
+                        if (!sessionMap.TryGetValue(currentSessionId, out var sessionAgg))
+                        {
+                            sessionAgg = new SubSessionAnalyticsAccumulator { SessionId = currentSessionId };
+                            sessionMap[currentSessionId] = sessionAgg;
+                        }
+
+                        sessionAgg.AddSubSession(subSessionId);
+                        sessionAgg.AddSubSessionLocation(subSessionId, subSessionStartLat, subSessionStartLon, subSessionEndLat, subSessionEndLon);
+                        sessionAgg.AddMetrics(durationMs, speedKbps, fileSizeBytes);
+
+                        overall.AddMetrics(durationMs, speedKbps, fileSizeBytes);
+                    }
+                }
+
+                var sessionIdsToLoad = sessionMap.Keys.ToList();
+                if (sessionIdsToLoad.Count > 0)
+                {
+                    var sessionCoordinates = await db.tbl_session
+                        .AsNoTracking()
+                        .Where(s => s.id.HasValue && sessionIdsToLoad.Contains(s.id.Value))
+                        .Select(s => new
+                        {
+                            s.id,
+                            s.start_lat,
+                            s.start_lon,
+                            s.end_lat,
+                            s.end_lon
+                        })
+                        .ToListAsync();
+
+                    foreach (var sessionCoordinate in sessionCoordinates)
+                    {
+                        if (sessionCoordinate.id.HasValue && sessionMap.TryGetValue(sessionCoordinate.id.Value, out var sessionAgg))
+                        {
+                            sessionAgg.StartLat = sessionCoordinate.start_lat;
+                            sessionAgg.StartLon = sessionCoordinate.start_lon;
+                            sessionAgg.EndLat = sessionCoordinate.end_lat;
+                            sessionAgg.EndLon = sessionCoordinate.end_lon;
+                        }
+                    }
+                }
+
+                var sessions = sessionMap.Values
+                    .OrderBy(x => x.SessionId)
+                    .Select(x => x.ToResponse())
+                    .ToList();
+
+                return Json(new
+                {
+                    requested_session_ids = requestedSessionIds,
+                    data = sessions,
+                    summary = new
+                    {
+                        total_duration = RoundMetric(overall.TotalDuration),
+                        avg_duration = overall.DurationCount > 0 ? RoundMetric(overall.TotalDuration / overall.DurationCount) : 0d,
+                        total_speed = RoundMetric(overall.TotalSpeed),
+                        avg_speed = overall.SpeedCount > 0 ? RoundMetric(overall.TotalSpeed / overall.SpeedCount) : 0d,
+                        total_file_size = RoundMetric(overall.TotalFileSize),
+                        avg_file_size = overall.FileSizeCount > 0 ? RoundMetric(overall.TotalFileSize / overall.FileSizeCount) : 0d
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "An error occurred while fetching sub-session analytics.",
+                    details = ex.Message
+                });
+            }
+        }
+
 // ========================================
 //  RESPONSE DTO FOR CACHING
 // ========================================
@@ -942,6 +1235,41 @@ public class AvailablePolygonsResponse
             p.ParameterName = name;
             p.Value = value ?? DBNull.Value;
             cmd.Parameters.Add(p);
+        }
+
+        private static double? TryParseNullableDouble(string? raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return null;
+            }
+
+            if (double.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed))
+            {
+                return parsed;
+            }
+
+            return null;
+        }
+
+        private static float? TryParseNullableFloat(string? raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return null;
+            }
+
+            if (float.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed))
+            {
+                return parsed;
+            }
+
+            return null;
+        }
+
+        private static double RoundMetric(double value)
+        {
+            return Math.Round(value, 2, MidpointRounding.AwayFromZero);
         }
 
         private static List<int> ParseCsvToIntList(string? csv)

@@ -2081,7 +2081,7 @@ private string BuildNetworkLogCacheKey(
     string fromKey = from?.ToString("yyyyMMdd") ?? "null";
     string toKey = to?.ToString("yyyyMMdd") ?? "null";
 
-    return $"networklog:{sortedSessionIds}:{providerKey}:{fromKey}:{toKey}:{page}:{limit}";
+    return $"networklog:v2:{sortedSessionIds}:{providerKey}:{fromKey}:{toKey}:{page}:{limit}";
 }
 
 private void AddParameter(DbCommand cmd, string name, object value)

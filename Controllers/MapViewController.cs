@@ -341,7 +341,7 @@ public async Task<IActionResult> GetProjectPolygons(
             if (claim != null && int.TryParse(claim.Value, out int cId)) targetCompanyId = cId;
         }
 
-        if (targetCompanyId == 0)
+        if (!isSuperAdmin && targetCompanyId == 0)
             return Unauthorized(new { Status = 0, Message = "Unauthorized. Unable to resolve Company Context." });
     }
 
@@ -412,7 +412,7 @@ public async Task<IActionResult> GetProjectPolygons(
 
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = @"
-                SELECT id, name, ST_AsText(region) AS wkt
+                SELECT id, name, ST_AsText(region) AS wkt, area
                 FROM map_regions
                 WHERE status = 1
                   AND tbl_project_id = @pid;";
@@ -426,7 +426,8 @@ public async Task<IActionResult> GetProjectPolygons(
                 {
                     id = r.GetFieldValue<int>(0),
                     name = r.IsDBNull(1) ? null : r.GetString(1),
-                    wkt = r.IsDBNull(2) ? null : r.GetString(2)
+                    wkt = r.IsDBNull(2) ? null : r.GetString(2),
+                    area = r.IsDBNull(3) ? (double?)null : Convert.ToDouble(r.GetValue(3))
                 });
             }
         }
@@ -523,6 +524,7 @@ public class ProjectPolygonItem
     public int id { get; set; }
     public string? name { get; set; }
     public string? wkt { get; set; }
+    public double? area { get; set; }
 }
 // ========================================
 //  RESPONSE DTO FOR CACHING
@@ -678,6 +680,7 @@ public class ProjectPolygonItem
             public string Name { get; set; } = string.Empty;
             public string WKT { get; set; } = string.Empty;
             public List<int>? SessionIds { get; set; } = new();
+            public double? Area { get; set; }
         }
 
         public class ReturnAPIResponse
@@ -689,6 +692,44 @@ public class ProjectPolygonItem
 
         private sealed class SubSessionAnalyticsAccumulator
         {
+            private sealed class SubSessionStatusMetrics
+            {
+                public int RecordCount { get; private set; }
+                public double TotalDuration { get; private set; }
+                public int DurationCount { get; private set; }
+                public double TotalSpeed { get; private set; }
+                public int SpeedCount { get; private set; }
+                public double TotalFileSize { get; private set; }
+                public int FileSizeCount { get; private set; }
+                public double? MinSpeed { get; private set; }
+                public double? MaxSpeed { get; private set; }
+
+                public void AddObservation(double? durationMs, double? speedKbps, double? fileSizeBytes)
+                {
+                    RecordCount++;
+
+                    if (durationMs.HasValue)
+                    {
+                        TotalDuration += durationMs.Value;
+                        DurationCount++;
+                    }
+
+                    if (speedKbps.HasValue)
+                    {
+                        TotalSpeed += speedKbps.Value;
+                        SpeedCount++;
+                        MinSpeed = !MinSpeed.HasValue ? speedKbps.Value : Math.Min(MinSpeed.Value, speedKbps.Value);
+                        MaxSpeed = !MaxSpeed.HasValue ? speedKbps.Value : Math.Max(MaxSpeed.Value, speedKbps.Value);
+                    }
+
+                    if (fileSizeBytes.HasValue)
+                    {
+                        TotalFileSize += fileSizeBytes.Value;
+                        FileSizeCount++;
+                    }
+                }
+            }
+
             private sealed class SubSessionLocation
             {
                 public int SubSessionId { get; set; }
@@ -696,6 +737,7 @@ public class ProjectPolygonItem
                 public float? StartLon { get; set; }
                 public float? EndLat { get; set; }
                 public float? EndLon { get; set; }
+                public string? ResultStatus { get; set; }
             }
 
             public int SessionId { get; set; }
@@ -711,6 +753,10 @@ public class ProjectPolygonItem
             public int SpeedCount { get; private set; }
             public double TotalFileSize { get; private set; }
             public int FileSizeCount { get; private set; }
+            public double? MinSpeed { get; private set; }
+            public double? MaxSpeed { get; private set; }
+            private Dictionary<string, SubSessionStatusMetrics> StatusMetricsMap { get; } =
+                new(StringComparer.OrdinalIgnoreCase);
 
             public void AddSubSession(long? subSessionId)
             {
@@ -720,7 +766,99 @@ public class ProjectPolygonItem
                 }
             }
 
-            public void AddMetrics(double? durationMs, double? speedKbps, double? fileSizeBytes)
+            private static string NormalizeStatus(string? statusRaw)
+            {
+                if (string.IsNullOrWhiteSpace(statusRaw))
+                {
+                    return "FAILED";
+                }
+
+                var normalized = statusRaw.Trim().ToUpperInvariant();
+                return normalized switch
+                {
+                    "SUCCESS" or "SUCCEEDED" or "PASS" => "SUCCESS",
+                    "FAILED" or "FAIL" or "ERROR" => "FAILED",
+                    _ => "FAILED"
+                };
+            }
+
+            private SubSessionStatusMetrics GetOrCreateStatusMetrics(string? statusRaw)
+            {
+                var statusKey = NormalizeStatus(statusRaw);
+                if (!StatusMetricsMap.TryGetValue(statusKey, out var statusMetrics))
+                {
+                    statusMetrics = new SubSessionStatusMetrics();
+                    StatusMetricsMap[statusKey] = statusMetrics;
+                }
+
+                return statusMetrics;
+            }
+
+            private SubSessionStatusMetrics GetStatusMetrics(string statusKey)
+            {
+                return StatusMetricsMap.TryGetValue(statusKey, out var statusMetrics)
+                    ? statusMetrics
+                    : new SubSessionStatusMetrics();
+            }
+
+            private static object ToStatusComparisonResponse(SubSessionStatusMetrics statusMetrics)
+            {
+                return new
+                {
+                    count = statusMetrics.RecordCount,
+                    total_duration = RoundMetric(statusMetrics.TotalDuration),
+                    avg_duration = statusMetrics.DurationCount > 0
+                        ? RoundMetric(statusMetrics.TotalDuration / statusMetrics.DurationCount)
+                        : 0d,
+                    avg_speed = statusMetrics.SpeedCount > 0
+                        ? RoundMetric(statusMetrics.TotalSpeed / statusMetrics.SpeedCount)
+                        : 0d,
+                    min_speed = statusMetrics.MinSpeed.HasValue
+                        ? RoundMetric(statusMetrics.MinSpeed.Value)
+                        : (double?)null,
+                    max_speed = statusMetrics.MaxSpeed.HasValue
+                        ? RoundMetric(statusMetrics.MaxSpeed.Value)
+                        : (double?)null,
+                    total_file_size = RoundMetric(statusMetrics.TotalFileSize),
+                    avg_file_size = statusMetrics.FileSizeCount > 0
+                        ? RoundMetric(statusMetrics.TotalFileSize / statusMetrics.FileSizeCount)
+                        : 0d
+                };
+            }
+
+            public object ToMetricsResponse()
+            {
+                var successMetrics = GetStatusMetrics("SUCCESS");
+                var failedMetrics = GetStatusMetrics("FAILED");
+
+                var successCount = successMetrics.RecordCount;
+                var failedCount = failedMetrics.RecordCount;
+
+                return new
+                {
+                    total_duration = RoundMetric(TotalDuration),
+                    avg_duration = DurationCount > 0 ? RoundMetric(TotalDuration / DurationCount) : 0d,
+                    total_speed = RoundMetric(TotalSpeed),
+                    avg_speed = SpeedCount > 0 ? RoundMetric(TotalSpeed / SpeedCount) : 0d,
+                    min_speed = MinSpeed.HasValue ? RoundMetric(MinSpeed.Value) : (double?)null,
+                    max_speed = MaxSpeed.HasValue ? RoundMetric(MaxSpeed.Value) : (double?)null,
+                    total_file_size = RoundMetric(TotalFileSize),
+                    avg_file_size = FileSizeCount > 0 ? RoundMetric(TotalFileSize / FileSizeCount) : 0d,
+                    status_counts = new
+                    {
+                        success = successCount,
+                        failed = failedCount,
+                        total = successCount + failedCount
+                    },
+                    comparison = new
+                    {
+                        success = ToStatusComparisonResponse(successMetrics),
+                        failed = ToStatusComparisonResponse(failedMetrics)
+                    }
+                };
+            }
+
+            public void AddMetrics(double? durationMs, double? speedKbps, double? fileSizeBytes, string? resultStatusRaw)
             {
                 if (durationMs.HasValue)
                 {
@@ -732,6 +870,8 @@ public class ProjectPolygonItem
                 {
                     TotalSpeed += speedKbps.Value;
                     SpeedCount++;
+                    MinSpeed = !MinSpeed.HasValue ? speedKbps.Value : Math.Min(MinSpeed.Value, speedKbps.Value);
+                    MaxSpeed = !MaxSpeed.HasValue ? speedKbps.Value : Math.Max(MaxSpeed.Value, speedKbps.Value);
                 }
 
                 if (fileSizeBytes.HasValue)
@@ -739,9 +879,12 @@ public class ProjectPolygonItem
                     TotalFileSize += fileSizeBytes.Value;
                     FileSizeCount++;
                 }
+
+                var statusMetrics = GetOrCreateStatusMetrics(resultStatusRaw);
+                statusMetrics.AddObservation(durationMs, speedKbps, fileSizeBytes);
             }
 
-            public void AddSubSessionLocation(long? subSessionId, float? startLat, float? startLon, float? endLat, float? endLon)
+            public void AddSubSessionLocation(long? subSessionId, float? startLat, float? startLon, float? endLat, float? endLon, string? resultStatusRaw)
             {
                 if (!subSessionId.HasValue || subSessionId.Value < int.MinValue || subSessionId.Value > int.MaxValue)
                 {
@@ -755,6 +898,7 @@ public class ProjectPolygonItem
                     existing.StartLon ??= startLon;
                     existing.EndLat ??= endLat;
                     existing.EndLon ??= endLon;
+                    existing.ResultStatus ??= NormalizeStatus(resultStatusRaw);
                     return;
                 }
 
@@ -764,7 +908,8 @@ public class ProjectPolygonItem
                     StartLat = startLat,
                     StartLon = startLon,
                     EndLat = endLat,
-                    EndLon = endLon
+                    EndLon = endLon,
+                    ResultStatus = NormalizeStatus(resultStatusRaw)
                 };
             }
 
@@ -781,7 +926,8 @@ public class ProjectPolygonItem
                             start_lon = x.StartLon,
                             end_lat = x.EndLat,
                             end_lon = x.EndLon
-                        }
+                        },
+                        result_status = x.ResultStatus
                     })
                     .ToList();
 
@@ -797,15 +943,7 @@ public class ProjectPolygonItem
                     },
                     sub_session_count = SubSessionIds.Count,
                     sub_sessions = subSessions,
-                    metrics = new
-                    {
-                        total_duration = RoundMetric(TotalDuration),
-                        avg_duration = DurationCount > 0 ? RoundMetric(TotalDuration / DurationCount) : 0d,
-                        total_speed = RoundMetric(TotalSpeed),
-                        avg_speed = SpeedCount > 0 ? RoundMetric(TotalSpeed / SpeedCount) : 0d,
-                        total_file_size = RoundMetric(TotalFileSize),
-                        avg_file_size = FileSizeCount > 0 ? RoundMetric(TotalFileSize / FileSizeCount) : 0d
-                    }
+                    metrics = ToMetricsResponse()
                 };
             }
         }
@@ -827,8 +965,8 @@ public class ProjectPolygonItem
                 string sessionStr = string.Join(",", model.SessionIds ?? new List<int>());
 
                 const string sql = @"
-                    INSERT INTO map_regions (tbl_project_id, name, region, status, session_id)
-                    VALUES (@pid, @name, ST_GeomFromText(@wkt, 4326), 1, @sids);";
+                    INSERT INTO map_regions (tbl_project_id, name, region, status, session_id, area)
+                    VALUES (@pid, @name, ST_GeomFromText(@wkt, 4326), 1, @sids, @area);";
 
                 var conn = db.Database.GetDbConnection();
                 if (conn.State != ConnectionState.Open) await conn.OpenAsync();
@@ -840,6 +978,7 @@ public class ProjectPolygonItem
                 AddParam(cmd, "@name", model.Name ?? string.Empty);
                 AddParam(cmd, "@wkt", model.WKT ?? string.Empty);
                 AddParam(cmd, "@sids", string.IsNullOrWhiteSpace(sessionStr) ? DBNull.Value : sessionStr);
+                AddParam(cmd, "@area", (object?)model.Area ?? DBNull.Value);
 
                 await cmd.ExecuteNonQueryAsync();
 
@@ -848,6 +987,7 @@ public class ProjectPolygonItem
                 message.Data = new
                 {
                     saved = true,
+                    area = model.Area,
                     sessionCsv = string.IsNullOrWhiteSpace(sessionStr) ? null : sessionStr,
                     currentSessionId = HttpContext?.Session?.Id
                 };
@@ -897,7 +1037,7 @@ public async Task<IActionResult> GetAvailablePolygons(
         targetCompanyId = claimCompanyId;
     }
 
-    if (targetCompanyId == 0)
+    if (!isSuperAdmin && targetCompanyId == 0)
         return Unauthorized(new { Status = 0, Message = "Unauthorized. Unable to resolve Company Context." });
 
     // =========================================================
@@ -989,7 +1129,7 @@ public async Task<IActionResult> GetAvailablePolygons(
             }
 
             cmd.CommandText = $@"
-                SELECT id, name, ST_AsText(region) AS wkt, session_id
+                SELECT id, name, ST_AsText(region) AS wkt, session_id, area
                 FROM map_regions
                 WHERE status = 1
                   AND tbl_project_id IS NULL
@@ -1008,12 +1148,14 @@ public async Task<IActionResult> GetAvailablePolygons(
             {
                 var sessionCsv = r.IsDBNull(3) ? null : r.GetString(3);
                 var parsed = ParseCsvToIntList(sessionCsv);
+                var area = r.IsDBNull(4) ? (double?)null : Convert.ToDouble(r.GetValue(4));
 
                 rows.Add(new
                 {
                     id = r.GetFieldValue<int>(0),
                     name = r.IsDBNull(1) ? null : r.GetString(1),
                     wkt = r.IsDBNull(2) ? null : r.GetString(2),
+                    area,
                     sessionCsv,
                     sessionIds = parsed
                 });
@@ -1100,11 +1242,13 @@ public async Task<IActionResult> GetAvailablePolygons(
                         CASE
                             WHEN JSON_VALID(json_data) THEN JSON_UNQUOTE(JSON_EXTRACT(json_data, '$.file_size_bytes'))
                             ELSE NULL
-                        END AS file_size_bytes
+                        END AS file_size_bytes,
+                        CASE
+                            WHEN JSON_VALID(json_data) THEN JSON_UNQUOTE(JSON_EXTRACT(json_data, '$.result_status'))
+                            ELSE NULL
+                        END AS result_status
                     FROM tbl_sub_session
-                    WHERE session_id IS NOT NULL
-                      AND JSON_VALID(json_data)
-                      AND JSON_UNQUOTE(JSON_EXTRACT(json_data, '$.result_status')) = 'SUCCESS'";
+                    WHERE session_id IS NOT NULL";
 
                 if (requestedSessionIds.Count > 0)
                 {
@@ -1148,6 +1292,7 @@ public async Task<IActionResult> GetAvailablePolygons(
                         var durationMs = TryParseNullableDouble(reader.IsDBNull(6) ? null : reader.GetValue(6)?.ToString());
                         var speedKbps = TryParseNullableDouble(reader.IsDBNull(7) ? null : reader.GetValue(7)?.ToString());
                         var fileSizeBytes = TryParseNullableDouble(reader.IsDBNull(8) ? null : reader.GetValue(8)?.ToString());
+                        var resultStatus = reader.IsDBNull(9) ? null : reader.GetValue(9)?.ToString();
 
                         if (!sessionMap.TryGetValue(currentSessionId, out var sessionAgg))
                         {
@@ -1156,10 +1301,10 @@ public async Task<IActionResult> GetAvailablePolygons(
                         }
 
                         sessionAgg.AddSubSession(subSessionId);
-                        sessionAgg.AddSubSessionLocation(subSessionId, subSessionStartLat, subSessionStartLon, subSessionEndLat, subSessionEndLon);
-                        sessionAgg.AddMetrics(durationMs, speedKbps, fileSizeBytes);
+                        sessionAgg.AddSubSessionLocation(subSessionId, subSessionStartLat, subSessionStartLon, subSessionEndLat, subSessionEndLon, resultStatus);
+                        sessionAgg.AddMetrics(durationMs, speedKbps, fileSizeBytes, resultStatus);
 
-                        overall.AddMetrics(durationMs, speedKbps, fileSizeBytes);
+                        overall.AddMetrics(durationMs, speedKbps, fileSizeBytes, resultStatus);
                     }
                 }
 
@@ -1200,15 +1345,7 @@ public async Task<IActionResult> GetAvailablePolygons(
                 {
                     requested_session_ids = requestedSessionIds,
                     data = sessions,
-                    summary = new
-                    {
-                        total_duration = RoundMetric(overall.TotalDuration),
-                        avg_duration = overall.DurationCount > 0 ? RoundMetric(overall.TotalDuration / overall.DurationCount) : 0d,
-                        total_speed = RoundMetric(overall.TotalSpeed),
-                        avg_speed = overall.SpeedCount > 0 ? RoundMetric(overall.TotalSpeed / overall.SpeedCount) : 0d,
-                        total_file_size = RoundMetric(overall.TotalFileSize),
-                        avg_file_size = overall.FileSizeCount > 0 ? RoundMetric(overall.TotalFileSize / overall.FileSizeCount) : 0d
-                    }
+                    summary = overall.ToMetricsResponse()
                 });
             }
             catch (Exception ex)
@@ -5982,7 +6119,8 @@ public async Task<IActionResult> AddSitePrediction([FromBody] AddSitePredictionM
                                 id,
                                 name,
                                 ST_AsText(region) AS wkt,
-                                project_id
+                                project_id,
+                                area
                             FROM tbl_savepolygon
                             WHERE project_id = @pid
                             ORDER BY id DESC;";
@@ -5997,6 +6135,7 @@ public async Task<IActionResult> AddSitePrediction([FromBody] AddSitePredictionM
                             var wktVal = r1.IsDBNull(2) ? null : r1.GetString(2);
 
                             long projIdVal = r1.IsDBNull(3) ? projectId : r1.GetFieldValue<long>(3);
+                            var areaVal = r1.IsDBNull(4) ? (double?)null : Convert.ToDouble(r1.GetValue(4));
 
                             savedPolyList.Add(new
                             {
@@ -6004,7 +6143,8 @@ public async Task<IActionResult> AddSitePrediction([FromBody] AddSitePredictionM
                                 Name = nameVal,
                                 Source = "tbl_savepolygon",
                                 ProjectId = projIdVal,
-                                Wkt = wktVal
+                                Wkt = wktVal,
+                                Area = areaVal
                             });
                         }
                     }
@@ -6019,7 +6159,8 @@ public async Task<IActionResult> AddSitePrediction([FromBody] AddSitePredictionM
                                 id,
                                 name,
                                 ST_AsText(region) AS wkt,
-                                tbl_project_id
+                                tbl_project_id,
+                                area
                             FROM map_regions
                             WHERE status = 1
                               AND tbl_project_id = @pid
@@ -6034,6 +6175,7 @@ public async Task<IActionResult> AddSitePrediction([FromBody] AddSitePredictionM
                             var nameVal = r2.IsDBNull(1) ? null : r2.GetString(1);
                             var wktVal = r2.IsDBNull(2) ? null : r2.GetString(2);
                             long projIdVal = r2.IsDBNull(3) ? projectId : Convert.ToInt64(r2.GetInt32(3));
+                            var areaVal = r2.IsDBNull(4) ? (double?)null : Convert.ToDouble(r2.GetValue(4));
 
                             mapRegionList.Add(new
                             {
@@ -6041,7 +6183,8 @@ public async Task<IActionResult> AddSitePrediction([FromBody] AddSitePredictionM
                                 Name = nameVal,
                                 Source = "map_regions",
                                 ProjectId = projIdVal,
-                                Wkt = wktVal
+                                Wkt = wktVal,
+                                Area = areaVal
                             });
                         }
                     }

@@ -11209,19 +11209,19 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\adi thakur\\.nuget\\packages\\": {}
+    "/home/vinfocom/.nuget/packages/": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\Current\\Signal-Trackers\\SignalTracker.csproj",
+      "projectUniqueName": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/SignalTracker.csproj",
       "projectName": "SignalTracker",
-      "projectPath": "D:\\Current\\Signal-Trackers\\SignalTracker.csproj",
-      "packagesPath": "C:\\Users\\adi thakur\\.nuget\\packages\\",
-      "outputPath": "D:\\Current\\Signal-Trackers\\obj\\",
+      "projectPath": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/SignalTracker.csproj",
+      "packagesPath": "/home/vinfocom/.nuget/packages/",
+      "outputPath": "/home/vinfocom/Documents/Aditya/Current/Signal-Trackers/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
-        "C:\\Users\\adi thakur\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        "/home/vinfocom/.nuget/NuGet/NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net8.0"
@@ -11346,7 +11346,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.419/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "/usr/share/dotnet/sdk/8.0.419/PortableRuntimeIdentifierGraph.json"
       }
     }
   }

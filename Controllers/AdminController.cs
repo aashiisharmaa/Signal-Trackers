@@ -423,12 +423,6 @@ private int GetTargetCompanyId(int? explicitCompanyId)
             var message = new ReturnAPIResponse();
             try
             {
-                // DbConnectionProvider already routes the request to the correct database:
-                //   TW login  (country_code=TW)  → MySqlConnection2 (TW DB)   → all TW users
-                //   Main login                   → MySqlConnection  (Main DB)  → all Main users
-                //
-                // The DB boundary IS the security boundary, so we only need an auth check.
-                // No role-based company scoping is applied here.
                 if (User?.Identity?.IsAuthenticated != true)
                 {
                     message.Status = 0;
@@ -436,12 +430,22 @@ private int GetTargetCompanyId(int? explicitCompanyId)
                     return Json(message);
                 }
 
+                bool isSuperAdmin = _userScope.IsSuperAdmin(User);
+                int targetCompanyId = GetTargetCompanyId(company_id > 0 ? company_id : null);
+                if (targetCompanyId == 0 && !isSuperAdmin)
+                {
+                    message.Status = 0;
+                    message.Message = "Unauthorized. Unable to resolve Company Context.";
+                    return Json(message);
+                }
+
                 var query = db.tbl_user.AsNoTracking().AsQueryable();
 
-                // Optional: narrow to a specific company only when the caller explicitly passes company_id.
-                if (company_id > 0)
+                // Non-super admins are always locked to their own company.
+                // Super admins can optionally request a specific company via company_id.
+                if (targetCompanyId > 0)
                 {
-                    query = query.Where(u => u.company_id == company_id);
+                    query = query.Where(u => u.company_id == targetCompanyId);
                 }
 
                 if (!string.IsNullOrWhiteSpace(UserName))
@@ -6197,5 +6201,4 @@ if (targetCompanyId == 0 && !_userScope.IsSuperAdmin(User))
         }
     }
 }
-
 

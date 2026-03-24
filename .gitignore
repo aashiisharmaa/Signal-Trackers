@@ -11,3 +11,8 @@
 node_modules/
 dist/
 
+UploadedExcels/
+
+bin/
+obj/
+UploadedExcels/

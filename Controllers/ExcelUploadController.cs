@@ -169,7 +169,8 @@ namespace SignalTracker.Controllers
 
         // POST: /ExcelUpload/UploadExcelFile
         [HttpPost("UploadExcelFile")]
-        [RequestSizeLimit(100_000_000)]
+        [RequestSizeLimit(524_288_000)]
+        [RequestFormLimits(MultipartBodyLengthLimit = 524_288_000, ValueLengthLimit = int.MaxValue, MultipartHeadersLengthLimit = int.MaxValue)]
         public async Task<IActionResult> UploadExcelFile(
             [FromForm] string remarks,
             [FromForm] string token,
@@ -188,6 +189,13 @@ namespace SignalTracker.Controllers
 
                 if (UploadFile == null || UploadFile.Length == 0)
                     return Json(new { Status = 0, Message = "Please select excel file." });
+
+                const long maxUploadBytes = 524_288_000;
+                if (UploadFile.Length > maxUploadBytes)
+                    return Json(new { Status = 0, Message = "Upload file size must be less than 500 MB." });
+
+                if (UploadNoteFile != null && UploadNoteFile.Length > maxUploadBytes)
+                    return Json(new { Status = 0, Message = "Polygon file size must be less than 500 MB." });
 
                 // -------- SAVE FILES --------
                 var root = _env.ContentRootPath;

@@ -3529,8 +3529,14 @@ WITH ordered_logs AS (
         session_id,
         LOWER(m_alpha_long) AS provider,
         CASE
-            WHEN network LIKE '%5g%' THEN '5G'
-            WHEN network LIKE '%4g%' THEN '4G'
+            WHEN network IS NULL OR TRIM(network) = '' THEN 'Unknown'
+            WHEN UPPER(TRIM(network)) LIKE '%5G%'
+              OR UPPER(TRIM(network)) LIKE '%NR%'
+              OR UPPER(TRIM(network)) LIKE '%NSA%'
+              OR UPPER(TRIM(network)) = 'SA'
+              OR UPPER(TRIM(network)) LIKE '% SA%' THEN '5G'
+            WHEN UPPER(TRIM(network)) LIKE '%4G%'
+              OR UPPER(TRIM(network)) LIKE '%LTE%' THEN '4G'
             ELSE 'Unknown'
         END AS tech,
         timestamp,

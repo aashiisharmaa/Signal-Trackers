@@ -1642,7 +1642,7 @@ public class LogFilterModel
 private static readonly string[] BaseApps =
 {
     "Whatsapp","Instagram","YT","Google Chrome","Google Search","FB",
-    "Gmail","Outlook","Spotify","Blinkit","Jio Hotstar"
+    "Gmail","Outlook","Spotify","Blinkit","Jio Hotstar","Netflix","Amazon Prime"
 };
 
 private sealed class AppAgg
@@ -1985,7 +1985,7 @@ private async Task<Dictionary<string, object>> GetAppSummaryRaw(
     var (whereClause, parameters) = BuildSqlWhere(sessionIds, provider, filters);
 
     // List of apps to track
-    var baseApps = new[] { "Whatsapp", "Instagram", "YT", "Google Chrome", "Google Search", "FB", "Gmail", "Outlook", "Spotify", "Blinkit", "Jio Hotstar" };
+    var baseApps = new[] { "Whatsapp", "Instagram", "YT", "Google Chrome", "Google Search", "FB", "Gmail", "Outlook", "Spotify", "Blinkit", "Jio Hotstar","Netflix", "Amazon Prime ", };
     
     var caseBuilder = new StringBuilder();
     foreach (var app in baseApps)

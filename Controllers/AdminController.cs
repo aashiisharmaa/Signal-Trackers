@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -5925,6 +5925,9 @@ if (targetCompanyId == 0 && !_userScope.IsSuperAdmin(User))
                         WHEN l.apps LIKE '%Spotify%' THEN 'Spotify'
                         WHEN l.apps LIKE '%Blinkit%' THEN 'Blinkit'
                         WHEN l.apps LIKE '%Jio Hotstar%' THEN 'Jio Hotstar'
+                        WHEN l.apps LIKE '%Amazon Prime%' THEN 'Amazon Prime'
+                        WHEN l.apps LIKE '%Netflix%' THEN 'Netflix'
+                        
                         ELSE NULL
                     END AS appName
                 FROM tbl_network_log l

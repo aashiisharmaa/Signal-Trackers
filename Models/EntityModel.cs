@@ -776,6 +776,10 @@ public class IndoorOutdoorLogDto
 
     public class tbl_upload_history
     {
+        // DB schema no longer has session_id in tbl_upload_history.
+        // Keep this for backward compatibility in code paths that might still read it,
+        // but prevent EF from mapping it to SQL columns.
+        [NotMapped]
         public int? session_id { get; set; }
 
         public int id { get; set; }

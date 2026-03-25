@@ -806,10 +806,22 @@ public IActionResult UploadSitePrediction(
 
                         if (outerTx != null)
                         {
-                            if (IsValidSheet && allErrorList.Count == 0)
-                                outerTx.Commit();
+                            if (fileType == 1)
+                            {
+                                // For large network-log uploads, keep the created session and
+                                // commit valid rows even if some rows had validation errors.
+                                if (sessionId > 0 && IsValidSheet)
+                                    outerTx.Commit();
+                                else
+                                    outerTx.Rollback();
+                            }
                             else
-                                outerTx.Rollback();
+                            {
+                                if (IsValidSheet && allErrorList.Count == 0)
+                                    outerTx.Commit();
+                                else
+                                    outerTx.Rollback();
+                            }
                         }
                     });
 
@@ -971,18 +983,14 @@ public IActionResult UploadSitePrediction(
         //  YAHAN KOI expectedHeaders / ValidateCsvHeadersStrict NAHI HAI
         //  Direct records read karenge; mapping [Name(...)] handle karega
 
-	        var records = csv.GetRecords<NetworkLogModel>().ToList();
-	        if (records.Count == 0)
-	        {
-	            return true;
-	        }
-
         try
         {
             int rowIndex = 0;
+            bool hasAnyRecord = false;
 
-            foreach (var row in records)
+            foreach (var row in csv.GetRecords<NetworkLogModel>())
             {
+                hasAnyRecord = true;
                 rowIndex++;
 
                 // --------- TIMESTAMP HANDLING ----------
@@ -1028,14 +1036,13 @@ public IActionResult UploadSitePrediction(
 
                     // Agar tum bilkul bhi error nahi chahte ho, ye 3 line bhi hata sakte ho
                     errorList.Add($"Row {rowIndex} ({row.Timestamp}): Invalid Timestamp in sheet {fileName}");
-                    isColValValid = false;
                     continue;
                 }
                 // --------- END TIMESTAMP HANDLING ----------
 
-	                var entity = db.tbl_network_log
-	                               .FirstOrDefault(x => x.session_id == sessionId && x.timestamp == timestamp)
-	                             ?? new tbl_network_log();
+	                // Upload creates a fresh session, so rows are always inserts.
+	                // Avoid per-row DB lookup to keep large uploads fast.
+	                var entity = new tbl_network_log();
 
 	                entity.session_id = sessionId;
 	                entity.company_id = companyId;
@@ -1175,6 +1182,11 @@ public IActionResult UploadSitePrediction(
 
                 rowInserted++;
             }
+
+	            if (!hasAnyRecord)
+	            {
+	                return true;
+	            }
 
 	            if (isColValValid)
 	            {

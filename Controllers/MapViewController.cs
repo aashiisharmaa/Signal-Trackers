@@ -51,6 +51,10 @@ namespace SignalTracker.Controllers
         {
             private static readonly HashSet<int> LteTddBands = new HashSet<int>
             { 33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48 };
+            private static readonly HashSet<int> NrCommonBands = new HashSet<int>
+            { 1,3,5,7,8,20,28,38,40,41,77,78,79 };
+            private static readonly HashSet<int> NrExclusiveBands = new HashSet<int>
+            { 77,78,79,257,258,260,261 };
 
             private static readonly Regex RxNumber = new Regex(@"(?<![A-Za-z])(\d{1,3})(?![A-Za-z])", RegexOptions.Compiled);
             private static readonly Regex RxNR = new Regex(@"\bn\d{1,3}\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -58,6 +62,7 @@ namespace SignalTracker.Controllers
             private static readonly Regex RxENDC = new Regex(@"\b(EN-?DC|ENDC)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
             private static readonly Regex RxSA = new Regex(@"\bSA\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
             private static readonly Regex RxNSA = new Regex(@"\bNSA\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+            private static readonly Regex Rx5GHint = new Regex(@"\b(5G|NR|NRARFCN|NSA|EN-?DC|ENDC|N\d{1,3})\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
             public sealed class Result
             {
@@ -100,12 +105,33 @@ namespace SignalTracker.Controllers
                 network ??= string.Empty;
                 primaryCellInfo ??= string.Empty;
                 neighborsInfo ??= string.Empty;
+                bool hasLteHint = network.Contains("LTE", StringComparison.OrdinalIgnoreCase)
+                    || network.Contains("4G", StringComparison.OrdinalIgnoreCase);
+                bool looksLikeNrNumericBand = !isNr
+                    && !hasLteHint
+                    && !string.IsNullOrWhiteSpace(bandRaw)
+                    && int.TryParse(bandRaw.Trim(), out var bandAsNum)
+                    && NrCommonBands.Contains(bandAsNum);
+                bool isNrExclusiveBand = bandNum.HasValue && NrExclusiveBands.Contains(bandNum.Value);
+
+                bool has5GHint =
+                    isNr ||
+                    isNrExclusiveBand ||
+                    looksLikeNrNumericBand ||
+                    network.Contains("5G", StringComparison.OrdinalIgnoreCase) ||
+                    network.Contains("NR", StringComparison.OrdinalIgnoreCase) ||
+                    network.Contains("NSA", StringComparison.OrdinalIgnoreCase) ||
+                    network.Contains("SA", StringComparison.OrdinalIgnoreCase) ||
+                    network.Contains("ENDC", StringComparison.OrdinalIgnoreCase) ||
+                    Rx5GHint.IsMatch(primaryCellInfo) ||
+                    Rx5GHint.IsMatch(neighborsInfo);
 
                 // 5G?
-                if (isNr || network.Contains("5G", StringComparison.OrdinalIgnoreCase) || network.Contains("NR", StringComparison.OrdinalIgnoreCase))
+                if (has5GHint)
                 {
                     bool hintNSA =
                         RxNSA.IsMatch(network) ||
+                        RxNSA.IsMatch(primaryCellInfo) || RxNSA.IsMatch(neighborsInfo) ||
                         RxENDC.IsMatch(primaryCellInfo) || RxENDC.IsMatch(neighborsInfo) ||
                         primaryCellInfo.Contains("LTE", StringComparison.OrdinalIgnoreCase) ||
                         neighborsInfo.Contains("LTE", StringComparison.OrdinalIgnoreCase);
@@ -121,8 +147,7 @@ namespace SignalTracker.Controllers
                 // 4G/LTE?
                 if (RxLTE.IsMatch(bandRaw ?? string.Empty)
                     || network.Contains("LTE", StringComparison.OrdinalIgnoreCase)
-                    || network.Contains("4G", StringComparison.OrdinalIgnoreCase)
-                    || (bandNum.HasValue && bandNum.Value >= 1 && bandNum.Value <= 88))
+                    || network.Contains("4G", StringComparison.OrdinalIgnoreCase))
                 {
                     var mode = (bandNum.HasValue && LteTddBands.Contains(bandNum.Value)) ? "TDD" : "FDD";
                     return new Result { Generation = "4G", Radio = "LTE", Mode = mode };
@@ -2394,6 +2419,9 @@ public async Task<IActionResult> GetCombinedProviderNetworkTime(
                 x.session_id,
                 x.timestamp,
                 x.network,
+                x.band,
+                x.primary_cell_info_1,
+                x.all_neigbor_cell_info,
                 x.m_alpha_long
             })
             .ToListAsync();
@@ -2423,40 +2451,40 @@ public async Task<IActionResult> GetCombinedProviderNetworkTime(
                 continue;
 
             // ----------------------------
-            // Provider resolution (FIX)
+            // Interval attribution
+            // Keep provider + network classification from the SAME sample.
+            // For [current, next), prefer current sample; fallback to next only if current is unusable.
             // ----------------------------
-            string provider =
-                !string.IsNullOrWhiteSpace(current.m_alpha_long)
-                    ? current.m_alpha_long.ToUpper()
-                    : !string.IsNullOrWhiteSpace(next.m_alpha_long)
-                        ? next.m_alpha_long.ToUpper()
-                        : "UNKNOWN";
-
-            // Normalize provider names
-            if (provider.Contains("AIRTEL"))
-                provider = "AIRTEL";
-            else if (provider.Contains("JIO"))
-                provider = "JIO";
-            else if (provider.Contains("VOD") || provider.Contains("IDEA"))
-                provider = "VI";
-
-            // ----------------------------
-            // Network detection (FIX)
-            // ----------------------------
-            string networkType = "OTHER";
-            var net = next.network?.ToUpper();
-
-            if (!string.IsNullOrEmpty(net))
+            string NormalizeProvider(string? raw)
             {
-                if (net.Contains("NR") || net.Contains("5G"))
-                    networkType = "5G";
-                else if (net.Contains("LTE") || net.Contains("4G"))
-                    networkType = "4G";
-                else if (net.Contains("3G"))
-                    networkType = "3G";
-                else if (net.Contains("2G"))
-                    networkType = "2G";
+                if (string.IsNullOrWhiteSpace(raw)) return "UNKNOWN";
+                var p = raw.Trim().ToUpperInvariant();
+
+                if (p.Contains("AIRTEL")) return "AIRTEL";
+                if (p.Contains("JIO")) return "JIO";
+                if (p.Contains("VOD") || p.Contains("IDEA") || p.Contains(" VI ") || p.StartsWith("VI") || p.Contains("VIL"))
+                    return "VI";
+
+                return p;
             }
+
+            string ResolveGeneration(string? band, string? network, string? primaryCellInfo1, string? allNeighborCellInfo)
+            {
+                var t = TechClassifier.Classify(band, network, primaryCellInfo1, allNeighborCellInfo);
+                return string.IsNullOrWhiteSpace(t.Generation) || t.Generation.Equals("Unknown", StringComparison.OrdinalIgnoreCase)
+                    ? "OTHER"
+                    : t.Generation.ToUpperInvariant();
+            }
+
+            var providerCurrent = NormalizeProvider(current.m_alpha_long);
+            var networkCurrent = ResolveGeneration(current.band, current.network, current.primary_cell_info_1, current.all_neigbor_cell_info);
+
+            bool currentUsable = providerCurrent != "UNKNOWN" && networkCurrent != "OTHER";
+
+            string provider = currentUsable ? providerCurrent : NormalizeProvider(next.m_alpha_long);
+            string networkType = currentUsable
+                ? networkCurrent
+                : ResolveGeneration(next.band, next.network, next.primary_cell_info_1, next.all_neigbor_cell_info);
 
             string key = $"{provider}|{networkType}";
 

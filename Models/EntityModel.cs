@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 
 namespace SignalTracker.Models
@@ -49,26 +50,56 @@ namespace SignalTracker.Models
 
 public class AddSitePredictionModel
 {
+    [JsonPropertyName("projectId")]
     public int ProjectId { get; set; }
-    public string Site { get; set; }
-    public string Cluster { get; set; }
+
+    [JsonPropertyName("site")]
+    public string? Site { get; set; }
+
+    [JsonPropertyName("cluster")]
+    public string? Cluster { get; set; }
+
+    [JsonPropertyName("bands")]
     public List<string> Bands { get; set; } = new();
-    public List<string> Sectors { get; set; } = new(); 
+
+    [JsonPropertyName("sectors")]
+    public List<int> Sectors { get; set; } = new();
+
+    [JsonPropertyName("azimuths")]
     public List<int> Azimuths { get; set; } = new();
+
+    [JsonPropertyName("heights")]
     public List<double> Heights { get; set; } = new();
+
+    [JsonPropertyName("mechanicalTilts")]
     public List<double> MechanicalTilts { get; set; } = new();
+
+    [JsonPropertyName("electricalTilts")]
     public List<double> ElectricalTilts { get; set; } = new();
-    public string Technology { get; set; }
+
+    [JsonPropertyName("technology")]
+    public string? Technology { get; set; }
+
+    [JsonPropertyName("technologies")]
     public List<TechnologyData> Technologies { get; set; } = new();
+
+    [JsonPropertyName("latitude")]
     public double Latitude { get; set; }
+
+    [JsonPropertyName("longitude")]
     public double Longitude { get; set; }
 }
 
 public class TechnologyData
 {
-    public string Technology { get; set; }
+    [JsonPropertyName("technology")]
+    public string? Technology { get; set; }
+
+    [JsonPropertyName("idValues")]
     public List<int> IdValues { get; set; } = new();
-    public string Earfcn { get; set; }
+
+    [JsonPropertyName("earfcn")]
+    public string? Earfcn { get; set; }
 }
     public class m_user_type
     {

@@ -112,8 +112,25 @@ public IActionResult SaveThreshold([FromBody] thresholds model)
         cf.SessionCheck();
         int uid = cf.UserId;
 
-        var existing = db.thresholds
-            .FirstOrDefault(x => x.user_id == uid && x.is_default == 0);
+        thresholds? existing = null;
+
+        // Prefer explicit row id when client sends it (prevents updating stale/older rows).
+        if (model?.id.HasValue == true && model.id.Value > 0)
+        {
+            existing = db.thresholds.FirstOrDefault(x =>
+                x.id == model.id &&
+                x.user_id == uid &&
+                x.is_default == 0);
+        }
+
+        // Fallback to latest user-specific custom threshold row.
+        if (existing == null)
+        {
+            existing = db.thresholds
+                .Where(x => x.user_id == uid && x.is_default == 0)
+                .OrderByDescending(x => x.id)
+                .FirstOrDefault();
+        }
 
         if (existing != null)
         {

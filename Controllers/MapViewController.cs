@@ -5944,6 +5944,13 @@ public async Task<IActionResult> AddSitePrediction([FromBody] AddSitePredictionM
 {
     if (model == null) return BadRequest("Invalid payload.");
     if (model.ProjectId <= 0) return BadRequest("ProjectId required.");
+    if (string.IsNullOrWhiteSpace(model.Site)) return BadRequest("Site is required.");
+    if (double.IsNaN(model.Latitude) || double.IsInfinity(model.Latitude) || model.Latitude < -90 || model.Latitude > 90)
+        return BadRequest("Latitude must be between -90 and 90.");
+    if (double.IsNaN(model.Longitude) || double.IsInfinity(model.Longitude) || model.Longitude < -180 || model.Longitude > 180)
+        return BadRequest("Longitude must be between -180 and 180.");
+    if (model.Bands == null || !model.Bands.Any(b => !string.IsNullOrWhiteSpace(b)))
+        return BadRequest("At least one band is required.");
 
     // Validate that all arrays have the same length based on Sectors
     int sectorCount = model.Sectors?.Count ?? 0;
@@ -5956,6 +5963,25 @@ public async Task<IActionResult> AddSitePrediction([FromBody] AddSitePredictionM
 
     if (model.Technologies == null || !model.Technologies.Any())
         return BadRequest("At least one Technology required.");
+
+    var cleanedBands = (model.Bands ?? new List<string>())
+        .Where(raw => !string.IsNullOrWhiteSpace(raw))
+        .Select(raw => raw.Trim())
+        .Select(raw =>
+        {
+            if (raw.StartsWith("B", StringComparison.OrdinalIgnoreCase) ||
+                raw.StartsWith("N", StringComparison.OrdinalIgnoreCase))
+            {
+                return raw.Substring(1).Trim();
+            }
+            return raw;
+        })
+        .Where(raw => !string.IsNullOrWhiteSpace(raw))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
+    if (cleanedBands.Count == 0)
+        return BadRequest("At least one valid band is required.");
 
     try
     {
@@ -5976,22 +6002,22 @@ public async Task<IActionResult> AddSitePrediction([FromBody] AddSitePredictionM
 
         foreach (var tech in model.Technologies)
         {
+            if (string.IsNullOrWhiteSpace(tech.Technology))
+                return BadRequest("Technology type is required.");
+
             // Validate that the nested idValues array matches the sectors length
             if (tech.IdValues == null || tech.IdValues.Count != sectorCount)
                 return BadRequest($"idValues count ({tech.IdValues?.Count}) must match sector count ({sectorCount}) for {tech.Technology}");
 
-            foreach (var rawBand in model.Bands ?? new List<string>())
+            foreach (var cleanBand in cleanedBands)
             {
-                // 2. Strip "B" or "n" from bands so "B7" becomes "7" (prevents inserting 0 in DB)
-                string cleanBand = rawBand.Replace("B", "").Replace("n", "");
-
                 for (int i = 0; i < sectorCount; i++)
                 {
                     await using var cmd = conn.CreateCommand();
                     cmd.CommandText = sql;
 
                     // 3. Correctly extract the current index [i] from arrays
-                    string sector = model.Sectors[i];
+                    string sector = model.Sectors[i].ToString(CultureInfo.InvariantCulture);
                     int azimuth = model.Azimuths[i];
                     int pciValue = tech.IdValues[i];
                     

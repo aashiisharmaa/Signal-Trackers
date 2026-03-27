@@ -5785,37 +5785,15 @@ public async Task<IActionResult> GetSiteNoMl(
     if (projectId <= 0)
         return BadRequest(new { Status = 0, Message = "projectId is required" });
 
-    var sql = @"
-    SELECT
-        s.id, s.network, s.earfcn_or_narfcn,
-        s.site_key_inferred, s.pci_or_psi, s.samples,
-        s.lat_pred, s.lon_pred,
-        s.azimuth_deg_5, s.azimuth_deg_5_soft, s.azimuth_deg_label_soft,
-        s.azimuth_adjustment_deg, s.template_spacing_deg,
-        s.beamwidth_deg_est, s.median_sample_distance_m,
-        s.cell_id_representative, s.sector_count,
-        s.azimuth_reliability, s.spacing_used
-    FROM site_noMl s
-    JOIN map_regions mr
-      ON mr.tbl_project_id = @pid
-     AND ST_Contains(
-           mr.region,
-           CASE
-               WHEN s.lat_pred BETWEEN -90 AND 90
-                AND s.lon_pred BETWEEN -180 AND 180
-               THEN ST_PointFromText(
-                       -- FIXED: Swapped to (Lat, Lon) order for SRID 4326
-                       CONCAT('POINT(', s.lat_pred, ' ', s.lon_pred, ')'),
-                       4326
-                   )
-               ELSE NULL
-           END
-         )
-    WHERE 1=1
-      /**n**/ /**s**/ /**p**/ /**e**/
-    ORDER BY s.id DESC
-    LIMIT @l OFFSET @o;
-";
+	    var sql = @"
+	    SELECT
+	        s.*
+	    FROM site_noMl s
+	    WHERE s.project_id = @pid
+	    /**n**/ /**s**/ /**p**/ /**e**/
+	    ORDER BY s.id DESC
+	    LIMIT @l OFFSET @o;
+	";
 
 
     sql = sql.Replace("/**n**/", string.IsNullOrWhiteSpace(network) ? "" : "AND s.network = @n");

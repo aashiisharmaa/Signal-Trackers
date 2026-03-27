@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Extensions.Configuration;
 
 using SignalTracker.Models; 
+using Microsoft.Extensions.Caching.Memory;
 
 namespace SignalTracker.Controllers
 {
@@ -21,12 +22,14 @@ namespace SignalTracker.Controllers
         private readonly ApplicationDbContext _db;
         private readonly ILogger<AuthController> _logger;
         private readonly IConfiguration _configuration;
+        private readonly IMemoryCache _cache;
 
-        public AuthController(ApplicationDbContext db, ILogger<AuthController> logger, IConfiguration configuration)
+        public AuthController(ApplicationDbContext db, ILogger<AuthController> logger, IConfiguration configuration, IMemoryCache cache)
         {
             _db = db;
             _logger = logger;
             _configuration = configuration;
+            _cache = cache;
         }
 
         private sealed class LoginUserDto
@@ -108,6 +111,11 @@ namespace SignalTracker.Controllers
                 return Unauthorized(new { message = "Invalid email or password" });
             }
 
+            if (_cache.TryGetValue($"active_session_{user.id}", out _))
+            {
+                return Unauthorized(new { message = "This account is already logged in on another device." });
+            }
+
             var resolvedCountryCode = (string.IsNullOrWhiteSpace(user.country_code) ? loginSource : user.country_code).Trim().ToUpperInvariant();
 
             // 2. Create claims. CRITICAL: Include 'country_code' so the provider knows which DB to use next.
@@ -137,6 +145,8 @@ namespace SignalTracker.Controllers
             HttpContext.Session.SetString("UserName", user.email ?? string.Empty);
             HttpContext.Session.SetInt32("UserID", user.id);
             HttpContext.Session.SetInt32("UserType", user.m_user_type_id);
+
+            _cache.Set($"active_session_{user.id}", true, DateTimeOffset.UtcNow.AddHours(5));
 
             return Ok(new { message = "Login successful", country = resolvedCountryCode, source_db = loginSource });
         }

@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authentication;
 using System.Security.Claims;
 using SignalTracker.Helper;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace SignalTracker.Controllers
 {
@@ -19,13 +20,15 @@ namespace SignalTracker.Controllers
         private readonly CommonFunction? _cf = null;
         private readonly ILogger<HomeController> _logger;
         private readonly IConfiguration _configuration;
+        private readonly IMemoryCache _cache;
 
-        public HomeController(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, ILogger<HomeController> logger, IConfiguration configuration)
+        public HomeController(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, ILogger<HomeController> logger, IConfiguration configuration, IMemoryCache cache)
         {
             _db = context;
             _cf = new CommonFunction(context, httpContextAccessor);
             _logger = logger;
             _configuration = configuration;
+            _cache = cache;
         }
 
         [HttpGet("")]
@@ -161,6 +164,11 @@ namespace SignalTracker.Controllers
                     }
                 }
 
+                if (_cache.TryGetValue($"active_session_{user!.id}", out _))
+                {
+                    return Json(new { success = false, message = "This account is already logged in on another device." });
+                }
+
                 var resolvedCountryCode = (string.IsNullOrWhiteSpace(user.country_code) ? loginSource : user.country_code).Trim().ToUpperInvariant();
 
                 var claims = new List<Claim>
@@ -195,6 +203,8 @@ namespace SignalTracker.Controllers
                 HttpContext.Session.SetInt32("UserID", user.id);
                 HttpContext.Session.SetInt32("UserType", user.m_user_type_id);
                 HttpContext.Session.SetString("country_code", resolvedCountryCode);
+
+                _cache.Set($"active_session_{user.id}", true, DateTimeOffset.UtcNow.AddHours(5));
 
                 return Json(new
                 {
@@ -358,6 +368,12 @@ namespace SignalTracker.Controllers
                     };
                     _db.tbl_user_login_audit_details.Add(objAudit);
                     await _db.SaveChangesAsync();
+                }
+
+                var userId = HttpContext?.Session.GetInt32("UserID");
+                if (userId.HasValue)
+                {
+                    _cache.Remove($"active_session_{userId.Value}");
                 }
             }
             catch { /* Log error */ }

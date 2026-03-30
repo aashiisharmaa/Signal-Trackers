@@ -5730,15 +5730,34 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                 if (items.Count == 0)
                     return Ok(new { Status = 1, Message = "No items to update" });
 
-                var allowedFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                var columnByIncomingKey = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    "site", "site_name", "sector", "cell_id", "sec_id",
-                    "longitude", "latitude", "tac", "pci", "azimuth", "height", "bw",
-                    "m_tilt", "e_tilt", "maximum_transmission_power_of_resource",
-                    "real_transmit_power_of_resource",
-                    "reference_signal_power", "cellsize", "frequency", "band",
-                    "uplink_center_frequency", "downlink_frequency",
-                    "earfcn", "cluster", "Technology"
+                    ["site"] = "site",
+                    ["site_name"] = "site_name",
+                    ["sector"] = "sector",
+                    ["cell_id"] = "cell_id",
+                    ["sec_id"] = "sec_id",
+                    ["longitude"] = "longitude",
+                    ["latitude"] = "latitude",
+                    ["tac"] = "tac",
+                    ["pci"] = "pci",
+                    ["azimuth"] = "azimuth",
+                    ["height"] = "height",
+                    ["bw"] = "bw",
+                    ["m_tilt"] = "m_tilt",
+                    ["e_tilt"] = "e_tilt",
+                    ["maximum_transmission_power_of_resource"] = "maximum_transmission_power_of_resource",
+                    ["real_transmit_power_of_resource"] = "real_transmit_power_of_resource",
+                    ["reference_signal_power"] = "reference_signal_power",
+                    ["cellsize"] = "cellsize",
+                    ["frequency"] = "frequency",
+                    ["band"] = "band",
+                    ["uplink_center_frequency"] = "uplink_center_frequency",
+                    ["downlink_frequency"] = "downlink_frequency",
+                    ["earfcn"] = "earfcn",
+                    ["cluster"] = "cluster",
+                    ["Technology"] = "Technology",
+                    ["technology"] = "Technology"
                 };
 
                 var conn = db.Database.GetDbConnection();
@@ -5746,6 +5765,9 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                     await conn.OpenAsync();
 
                 int totalUpdated = 0;
+                var requestedIds = new List<long>();
+                var updatedIds = new List<long>();
+                var skippedIds = new List<long>();
 
                 await using var tx = await conn.BeginTransactionAsync();
 
@@ -5753,19 +5775,22 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                 {
                     if (!item.TryGetValue("id", StringComparison.OrdinalIgnoreCase, out var idToken) || !long.TryParse(idToken.ToString(), out long id))
                         continue;
+                    requestedIds.Add(id);
 
                     var updates = new List<string>();
                     var parameters = new Dictionary<string, object?>();
+                    var seenDbColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
                     foreach (var prop in item.Properties())
                     {
                         var key = prop.Name;
                         if (key.Equals("id", StringComparison.OrdinalIgnoreCase)) continue;
 
-                        if (allowedFields.Contains(key))
+                        if (columnByIncomingKey.TryGetValue(key, out var dbColumn))
                         {
+                            if (!seenDbColumns.Add(dbColumn)) continue;
                             string paramName = "@" + key + "_" + id;
-                            updates.Add($"`{key}` = {paramName}");
+                            updates.Add($"`{dbColumn}` = {paramName}");
 
                             var val = prop.Value;
                             if (val == null || val.Type == Newtonsoft.Json.Linq.JTokenType.Null)
@@ -5796,12 +5821,26 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
 
                         int rows = await cmd.ExecuteNonQueryAsync();
                         totalUpdated += rows;
+                        if (rows > 0) updatedIds.Add(id);
+                        else skippedIds.Add(id);
+                    }
+                    else
+                    {
+                        skippedIds.Add(id);
                     }
                 }
 
                 await tx.CommitAsync();
 
-                return Ok(new { Status = 1, Message = $"Successfully updated {totalUpdated} prediction(s)" });
+                return Ok(new
+                {
+                    Status = 1,
+                    Message = $"Successfully updated {totalUpdated} prediction(s)",
+                    RowsAffected = totalUpdated,
+                    Requested = requestedIds.Count,
+                    UpdatedIds = updatedIds.Distinct().ToArray(),
+                    SkippedIds = skippedIds.Distinct().ToArray()
+                });
             }
             catch (Exception ex)
             {

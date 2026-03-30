@@ -5696,6 +5696,119 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
             });
         }
 
+        [HttpPost, Route("UpdateSitePrediction")]
+        public async Task<IActionResult> UpdateSitePrediction()
+        {
+            try
+            {
+                using var reader = new System.IO.StreamReader(Request.Body);
+                var body = await reader.ReadToEndAsync();
+                if (string.IsNullOrWhiteSpace(body))
+                    return BadRequest(new { Status = 0, Message = "Empty payload" });
+
+                var payloadTokens = Newtonsoft.Json.JsonConvert.DeserializeObject<Newtonsoft.Json.Linq.JToken>(body);
+                if (payloadTokens == null)
+                    return BadRequest(new { Status = 0, Message = "Invalid JSON" });
+
+                var items = new List<Newtonsoft.Json.Linq.JObject>();
+                if (payloadTokens is Newtonsoft.Json.Linq.JArray arr)
+                {
+                    foreach (var token in arr)
+                    {
+                        if (token is Newtonsoft.Json.Linq.JObject obj) items.Add(obj);
+                    }
+                }
+                else if (payloadTokens is Newtonsoft.Json.Linq.JObject obj)
+                {
+                    items.Add(obj);
+                }
+                else
+                {
+                    return BadRequest(new { Status = 0, Message = "Expected JSON object or array" });
+                }
+
+                if (items.Count == 0)
+                    return Ok(new { Status = 1, Message = "No items to update" });
+
+                var allowedFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    "site", "site_name", "sector", "cell_id", "sec_id",
+                    "longitude", "latitude", "tac", "pci", "azimuth", "height", "bw",
+                    "m_tilt", "e_tilt", "maximum_transmission_power_of_resource",
+                    "real_transmit_power_of_resource",
+                    "reference_signal_power", "cellsize", "frequency", "band",
+                    "uplink_center_frequency", "downlink_frequency",
+                    "earfcn", "cluster", "Technology"
+                };
+
+                var conn = db.Database.GetDbConnection();
+                if (conn.State != System.Data.ConnectionState.Open)
+                    await conn.OpenAsync();
+
+                int totalUpdated = 0;
+
+                await using var tx = await conn.BeginTransactionAsync();
+
+                foreach (var item in items)
+                {
+                    if (!item.TryGetValue("id", StringComparison.OrdinalIgnoreCase, out var idToken) || !long.TryParse(idToken.ToString(), out long id))
+                        continue;
+
+                    var updates = new List<string>();
+                    var parameters = new Dictionary<string, object?>();
+
+                    foreach (var prop in item.Properties())
+                    {
+                        var key = prop.Name;
+                        if (key.Equals("id", StringComparison.OrdinalIgnoreCase)) continue;
+
+                        if (allowedFields.Contains(key))
+                        {
+                            string paramName = "@" + key + "_" + id;
+                            updates.Add($"`{key}` = {paramName}");
+
+                            var val = prop.Value;
+                            if (val == null || val.Type == Newtonsoft.Json.Linq.JTokenType.Null)
+                                parameters[paramName] = DBNull.Value;
+                            else if (val.Type == Newtonsoft.Json.Linq.JTokenType.Integer)
+                                parameters[paramName] = (long)val;
+                            else if (val.Type == Newtonsoft.Json.Linq.JTokenType.Float)
+                                parameters[paramName] = (double)val;
+                            else if (val.Type == Newtonsoft.Json.Linq.JTokenType.Boolean)
+                                parameters[paramName] = (bool)val;
+                            else
+                                parameters[paramName] = val.ToString();
+                        }
+                    }
+
+                    if (updates.Count > 0)
+                    {
+                        var sql = $"UPDATE site_prediction SET {string.Join(", ", updates)} WHERE id = @id_{id}";
+                        await using var cmd = conn.CreateCommand();
+                        cmd.Transaction = tx;
+                        cmd.CommandText = sql;
+                        Add(cmd, $"@id_{id}", id);
+                        
+                        foreach (var kvp in parameters)
+                        {
+                            Add(cmd, kvp.Key, kvp.Value ?? DBNull.Value);
+                        }
+
+                        int rows = await cmd.ExecuteNonQueryAsync();
+                        totalUpdated += rows;
+                    }
+                }
+
+                await tx.CommitAsync();
+
+                return Ok(new { Status = 1, Message = $"Successfully updated {totalUpdated} prediction(s)" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Status = 0, Message = "Error: " + ex.Message });
+            }
+        }
+
 
 [HttpPost, Route("createProject")]
 public async Task<IActionResult> CreateSimpleProject([FromBody] CreateProjectModel model)

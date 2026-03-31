@@ -5937,7 +5937,7 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
             Add(cmd, "@l", Math.Clamp(limit, 1, 2000));
             Add(cmd, "@o", Math.Max(offset, 0));
 
-            var list = new List<Dictionary<string, object?>>();
+            var list = new List<object>();
             await using var r = await cmd.ExecuteReaderAsync();
             while (await r.ReadAsync())
             {
@@ -6021,6 +6021,8 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                     spo.tac AS updated_tac,
                     sp.pci AS original_pci,
                     spo.pci AS updated_pci,
+                    sp.RSRP AS original_rsrp,
+                    spo.RSRP AS updated_rsrp,
                     sp.azimuth AS original_azimuth,
                     spo.azimuth AS updated_azimuth,
                     sp.height AS original_height,
@@ -6051,6 +6053,10 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                     spo.earfcn AS updated_earfcn,
                     sp.cluster AS original_cluster,
                     spo.cluster AS updated_cluster,
+                    sp.tbl_project_id AS original_tbl_project_id,
+                    spo.tbl_project_id AS updated_tbl_project_id,
+                    sp.tbl_upload_id AS original_tbl_upload_id,
+                    spo.tbl_upload_id AS updated_tbl_upload_id,
                     sp.Technology AS original_technology,
                     spo.Technology AS updated_technology
                 FROM site_prediction sp
@@ -6074,16 +6080,127 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
             Add(cmd, "@l", Math.Clamp(limit, 1, 2000));
             Add(cmd, "@o", Math.Max(offset, 0));
 
-            var list = new List<Dictionary<string, object?>>();
+            var list = new List<object>();
+            
+            var deltaFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "site", "site_name", "cell_id", "sec_id", "longitude", "latitude",
+                "tac", "pci", "rsrp", "azimuth", "height", "bw", "m_tilt", "e_tilt",
+                "maximum_transmission_power_of_resource", "real_transmit_power_of_resource", 
+                "reference_signal_power", "band", "earfcn", "tbl_project_id", "tbl_upload_id"
+            };
+
             await using var r = await cmd.ExecuteReaderAsync();
+            var originalCols = new List<string>();
+            for (int i = 0; i < r.FieldCount; i++)
+            {
+                var colName = r.GetName(i);
+                if (colName.StartsWith("original_", StringComparison.OrdinalIgnoreCase) && !colName.Equals("original_id", StringComparison.OrdinalIgnoreCase))
+                {
+                    originalCols.Add(colName);
+                }
+            }
+
             while (await r.ReadAsync())
             {
-                var row = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-                for (int i = 0; i < r.FieldCount; i++)
+                bool hasChanges = false;
+                var changes = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var origCol in originalCols)
                 {
-                    row[r.GetName(i)] = await r.IsDBNullAsync(i) ? null : r.GetValue(i);
+                    var fieldName = origCol.Substring("original_".Length);
+                    var updCol = "updated_" + fieldName;
+                    
+                    int origOrd = r.GetOrdinal(origCol);
+                    int updOrd = r.GetOrdinal(updCol);
+                    
+                    var origVal = await r.IsDBNullAsync(origOrd) ? null : r.GetValue(origOrd);
+                    var updVal = await r.IsDBNullAsync(updOrd) ? null : r.GetValue(updOrd);
+                    
+                    bool isDifferent = false;
+                    if (origVal == null && updVal == null) isDifferent = false;
+                    else if (origVal == null || updVal == null) isDifferent = true;
+                    else if (!origVal.Equals(updVal) && origVal.ToString() != updVal.ToString()) isDifferent = true;
+
+                    if (!isDifferent)
+                    {
+                        continue;
+                    }
+
+                    hasChanges = true;
+
+                    if (deltaFields.Contains(fieldName))
+                    {
+                        double? oNum = null, uNum = null;
+                        if (origVal != null && double.TryParse(origVal.ToString(), out double o)) oNum = o;
+                        if (updVal != null && double.TryParse(updVal.ToString(), out double u)) uNum = u;
+
+                        if (oNum.HasValue && uNum.HasValue)
+                        {
+                            double delta = uNum.Value - oNum.Value;
+                            changes[fieldName] = new
+                            {
+                                original = origVal,
+                                updated = updVal,
+                                delta = Math.Round(delta, 4),
+                                pct_change = oNum.Value != 0 ? (double?)Math.Round((delta / oNum.Value) * 100.0, 2) : null
+                            };
+                        }
+                        else if (!oNum.HasValue && uNum.HasValue)
+                        {
+                            changes[fieldName] = new
+                            {
+                                original = origVal,
+                                updated = updVal,
+                                delta = uNum.Value,
+                                pct_change = (double?)null
+                            };
+                        }
+                        else if (oNum.HasValue && !uNum.HasValue)
+                        {
+                            changes[fieldName] = new
+                            {
+                                original = origVal,
+                                updated = updVal,
+                                delta = -oNum.Value,
+                                pct_change = -100.0
+                            };
+                        }
+                        else
+                        {
+                            changes[fieldName] = new
+                            {
+                                original = origVal,
+                                updated = updVal,
+                                delta = (double?)null,
+                                pct_change = (double?)null
+                            };
+                        }
+                    }
+                    else
+                    {
+                        changes[fieldName] = new
+                        {
+                            original = origVal,
+                            updated = updVal
+                        };
+                    }
                 }
-                list.Add(row);
+
+                if (hasChanges)
+                {
+                    list.Add(new
+                    {
+                        original_id = await r.IsDBNullAsync(r.GetOrdinal("original_id")) ? null : r.GetValue(r.GetOrdinal("original_id")),
+                        optimized_id = await r.IsDBNullAsync(r.GetOrdinal("optimized_id")) ? null : r.GetValue(r.GetOrdinal("optimized_id")),
+                        version = await r.IsDBNullAsync(r.GetOrdinal("version")) ? null : r.GetValue(r.GetOrdinal("version")),
+                        status = await r.IsDBNullAsync(r.GetOrdinal("status")) ? null : r.GetValue(r.GetOrdinal("status")),
+                        created_at = await r.IsDBNullAsync(r.GetOrdinal("created_at")) ? null : r.GetValue(r.GetOrdinal("created_at")),
+                        updated_at = await r.IsDBNullAsync(r.GetOrdinal("updated_at")) ? null : r.GetValue(r.GetOrdinal("updated_at")),
+                        updated_by = await r.IsDBNullAsync(r.GetOrdinal("updated_by")) ? null : r.GetValue(r.GetOrdinal("updated_by")),
+                        changes
+                    });
+                }
             }
 
             return Json(new

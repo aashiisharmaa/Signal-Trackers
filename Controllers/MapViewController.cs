@@ -5715,6 +5715,24 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                 ?? "system";
         }
 
+        private static object NormalizeSitePredictionValue(Newtonsoft.Json.Linq.JToken val)
+        {
+            if (val == null || val.Type == Newtonsoft.Json.Linq.JTokenType.Null)
+                return DBNull.Value;
+
+            if (val.Type == Newtonsoft.Json.Linq.JTokenType.Integer)
+                return (long)val;
+
+            if (val.Type == Newtonsoft.Json.Linq.JTokenType.Float)
+                return (double)val;
+
+            if (val.Type == Newtonsoft.Json.Linq.JTokenType.Boolean)
+                return (bool)val;
+
+            var raw = val.ToString();
+            return string.IsNullOrWhiteSpace(raw) ? DBNull.Value : raw.Trim();
+        }
+
         [HttpGet, Route("GetUpdatedSitePrediction")]
         public Task<IActionResult> GetUpdatedSitePrediction(
             [FromQuery] long projectId,
@@ -6033,6 +6051,7 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
         [HttpPost, Route("UpdateSitePrediction")]
         public async Task<IActionResult> UpdateSitePrediction()
         {
+            long currentItemId = 0;
             try
             {
                 using var reader = new System.IO.StreamReader(Request.Body);
@@ -6082,6 +6101,7 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                 {
                     if (!item.TryGetValue("id", StringComparison.OrdinalIgnoreCase, out var idToken) || !long.TryParse(idToken.ToString(), out long id))
                         continue;
+                    currentItemId = id;
                     requestedIds.Add(id);
 
                     var updates = new List<string>();
@@ -6098,18 +6118,7 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                             if (!seenDbColumns.Add(dbColumn)) continue;
                             string paramName = "@" + key + "_" + id;
                             updates.Add($"`{dbColumn}` = {paramName}");
-
-                            var val = prop.Value;
-                            if (val == null || val.Type == Newtonsoft.Json.Linq.JTokenType.Null)
-                                parameters[paramName] = DBNull.Value;
-                            else if (val.Type == Newtonsoft.Json.Linq.JTokenType.Integer)
-                                parameters[paramName] = (long)val;
-                            else if (val.Type == Newtonsoft.Json.Linq.JTokenType.Float)
-                                parameters[paramName] = (double)val;
-                            else if (val.Type == Newtonsoft.Json.Linq.JTokenType.Boolean)
-                                parameters[paramName] = (bool)val;
-                            else
-                                parameters[paramName] = val.ToString();
+                            parameters[paramName] = NormalizeSitePredictionValue(prop.Value);
                         }
                     }
 
@@ -6293,7 +6302,13 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { Status = 0, Message = "Error: " + ex.Message });
+                return StatusCode(500, new
+                {
+                    Status = 0,
+                    Message = "Error updating site prediction.",
+                    FailedId = currentItemId > 0 ? (long?)currentItemId : null,
+                    Details = ex.Message
+                });
             }
         }
 

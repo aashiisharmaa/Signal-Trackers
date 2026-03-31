@@ -5843,15 +5843,15 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                     spo.id AS optimized_id,
                     CASE WHEN spo.id IS NULL THEN 0 ELSE 1 END AS is_updated,
                     COALESCE(spo.version, 0) AS version,
-                    COALESCE(spo.status, 'original') AS status,
+                    CONVERT(COALESCE(spo.status, 'original') USING utf8mb4) COLLATE utf8mb4_unicode_ci AS status,
                     spo.created_at,
                     spo.updated_at,
-                    spo.updated_by,
-                    COALESCE(spo.site, sp.site) AS site,
-                    COALESCE(spo.site_name, sp.site_name) AS site_name,
-                    COALESCE(spo.sector, sp.sector) AS sector,
-                    COALESCE(spo.cell_id, sp.cell_id) AS cell_id,
-                    COALESCE(spo.sec_id, sp.sec_id) AS sec_id,
+                    CONVERT(spo.updated_by USING utf8mb4) COLLATE utf8mb4_unicode_ci AS updated_by,
+                    CONVERT(COALESCE(spo.site, sp.site) USING utf8mb4) COLLATE utf8mb4_unicode_ci AS site,
+                    CONVERT(COALESCE(spo.site_name, sp.site_name) USING utf8mb4) COLLATE utf8mb4_unicode_ci AS site_name,
+                    CONVERT(COALESCE(spo.sector, sp.sector) USING utf8mb4) COLLATE utf8mb4_unicode_ci AS sector,
+                    CONVERT(COALESCE(spo.cell_id, sp.cell_id) USING utf8mb4) COLLATE utf8mb4_unicode_ci AS cell_id,
+                    CONVERT(COALESCE(spo.sec_id, sp.sec_id) USING utf8mb4) COLLATE utf8mb4_unicode_ci AS sec_id,
                     COALESCE(spo.longitude, sp.longitude) AS longitude,
                     COALESCE(spo.latitude, sp.latitude) AS latitude,
                     COALESCE(spo.tac, sp.tac) AS tac,
@@ -5870,10 +5870,10 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                     COALESCE(spo.uplink_center_frequency, sp.uplink_center_frequency) AS uplink_center_frequency,
                     COALESCE(spo.downlink_frequency, sp.downlink_frequency) AS downlink_frequency,
                     COALESCE(spo.earfcn, sp.earfcn) AS earfcn,
-                    COALESCE(spo.cluster, sp.cluster) AS cluster,
+                    CONVERT(COALESCE(spo.cluster, sp.cluster) USING utf8mb4) COLLATE utf8mb4_unicode_ci AS cluster,
                     sp.tbl_project_id,
                     COALESCE(spo.tbl_upload_id, sp.tbl_upload_id) AS tbl_upload_id,
-                    COALESCE(spo.Technology, sp.Technology) AS Technology
+                    CONVERT(COALESCE(spo.Technology, sp.Technology) USING utf8mb4) COLLATE utf8mb4_unicode_ci AS Technology
                 FROM site_prediction sp
                 LEFT JOIN (
                     SELECT o.*

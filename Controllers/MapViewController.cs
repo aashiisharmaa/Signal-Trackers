@@ -5875,7 +5875,16 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                     COALESCE(spo.tbl_upload_id, sp.tbl_upload_id) AS tbl_upload_id,
                     COALESCE(spo.Technology, sp.Technology) AS Technology
                 FROM site_prediction sp
-                LEFT JOIN site_prediction_optimized spo ON spo.site_prediction_id = sp.id
+                LEFT JOIN (
+                    SELECT o.*
+                    FROM site_prediction_optimized o
+                    INNER JOIN (
+                        SELECT site_prediction_id, MAX(id) AS max_id
+                        FROM site_prediction_optimized
+                        WHERE site_prediction_id IS NOT NULL
+                        GROUP BY site_prediction_id
+                    ) latest ON latest.max_id = o.id
+                ) spo ON spo.site_prediction_id = sp.id
                 WHERE sp.tbl_project_id = @pid
                 {filterClause}
                 ORDER BY sp.id DESC
@@ -6045,7 +6054,16 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                     sp.Technology AS original_technology,
                     spo.Technology AS updated_technology
                 FROM site_prediction sp
-                INNER JOIN site_prediction_optimized spo ON spo.site_prediction_id = sp.id
+                INNER JOIN (
+                    SELECT o.*
+                    FROM site_prediction_optimized o
+                    INNER JOIN (
+                        SELECT site_prediction_id, MAX(id) AS max_id
+                        FROM site_prediction_optimized
+                        WHERE site_prediction_id IS NOT NULL
+                        GROUP BY site_prediction_id
+                    ) latest ON latest.max_id = o.id
+                ) spo ON spo.site_prediction_id = sp.id
                 WHERE sp.tbl_project_id = @pid
                 {filterClause}
                 ORDER BY sp.id DESC

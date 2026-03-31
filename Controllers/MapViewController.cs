@@ -7104,6 +7104,100 @@ public async Task<IActionResult> GetLtePredictionLocationStats(
     }
 }
 
+[HttpGet, Route("GetLtePredictionLocationStatsRefined")]
+public async Task<IActionResult> GetLtePredictionLocationStatsRefined(
+    [FromQuery] long projectId, 
+    [FromQuery] string metric, 
+    [FromQuery] string statType = "avg",
+    [FromQuery] string? siteId = null)
+{
+    if (projectId <= 0)
+        return BadRequest(new { Status = 0, Message = "A valid projectId is required." });
+
+    if (string.IsNullOrWhiteSpace(metric))
+        return BadRequest(new { Status = 0, Message = "A metric (TOP2, TOP3, MEASURED) is required." });
+
+    metric = metric.Trim().ToUpperInvariant();
+    statType = statType.Trim().ToLowerInvariant(); 
+
+    try
+    {
+        var baseQuery = db.Set<tbl_lte_prediction_results_refined>()
+                          .AsNoTracking()
+                          .Where(x => x.project_id == projectId);
+
+        if (!string.IsNullOrWhiteSpace(siteId))
+        {
+            baseQuery = baseQuery.Where(x => x.site_id == siteId);
+        }
+
+        var rawData = new List<dynamic>();
+
+        if (metric == "TOP2" || metric == "PRED_RSRP_TOP2_AVG")
+        {
+            rawData = await baseQuery.Where(x => x.pred_rsrp_top2_avg.HasValue)
+                .Select(x => new { Lat = Math.Round(x.lat, 6), Lon = Math.Round(x.lon, 6), SiteId = x.site_id, Value = x.pred_rsrp_top2_avg!.Value })
+                .ToListAsync<dynamic>();
+        }
+        else if (metric == "TOP3" || metric == "PRED_RSRP_TOP3_AVG")
+        {
+            rawData = await baseQuery.Where(x => x.pred_rsrp_top3_avg.HasValue)
+                .Select(x => new { Lat = Math.Round(x.lat, 6), Lon = Math.Round(x.lon, 6), SiteId = x.site_id, Value = x.pred_rsrp_top3_avg!.Value })
+                .ToListAsync<dynamic>();
+        }
+        else if (metric == "MEASURED" || metric == "MEASURED_DT_RSRP")
+        {
+            rawData = await baseQuery.Where(x => x.measured_dt_rsrp.HasValue)
+                .Select(x => new { Lat = Math.Round(x.lat, 6), Lon = Math.Round(x.lon, 6), SiteId = x.site_id, Value = x.measured_dt_rsrp!.Value })
+                .ToListAsync<dynamic>();
+        }
+        else
+        {
+            return BadRequest(new { Status = 0, Message = "Invalid metric. Please pass TOP2, TOP3, or MEASURED." });
+        }
+
+        if (rawData.Count == 0)
+        {
+            string msg = $"No {metric} prediction data found for this project";
+            msg += string.IsNullOrWhiteSpace(siteId) ? "." : $" and site ID '{siteId}'.";
+            return Ok(new { Status = 0, Message = msg });
+        }
+
+        var groupedData = rawData
+            .GroupBy(x => new { x.Lat, x.Lon, x.SiteId })
+            .Select(g => 
+            {
+                var values = g.Select(v => (double)v.Value).ToList();
+                double requestedValue = CalculateSingleStat(values, statType);
+
+                return new 
+                {
+                    lat = g.Key.Lat,
+                    lon = g.Key.Lon,
+                    siteId = g.Key.SiteId,
+                    sampleCount = values.Count,
+                    value = requestedValue 
+                };
+            })
+            .ToList();
+
+        return Ok(new
+        {
+            Status = 1,
+            ProjectId = projectId,
+            SiteIdFiltered = siteId ?? "All", 
+            Metric = metric,
+            StatRequested = statType,
+            TotalLocations = groupedData.Count,
+            Data = groupedData
+        });
+    }
+    catch (Exception ex)
+    {
+        return StatusCode(500, new { Status = 0, Message = "Error calculating location stats: " + ex.Message });
+    }
+}
+
 // Keep this helper method right below the API!
 private double CalculateSingleStat(List<double> values, string statType)
 {

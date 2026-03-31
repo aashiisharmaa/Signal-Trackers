@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using SignalTracker.Services;
 using static SignalTracker.Controllers.AdminController;
 using static SignalTracker.Controllers.MapViewController;
@@ -42,6 +42,7 @@ protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 
        public DbSet<tbl_company> tbl_company { get; set; }
        public DbSet<tbl_lte_prediction_results> Tbl_lte_prediction_results { get; set; }
+       public DbSet<tbl_lte_prediction_results_refined> tbl_lte_prediction_results_refined { get; set; }
 
 
 

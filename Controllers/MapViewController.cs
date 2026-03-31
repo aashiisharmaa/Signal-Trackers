@@ -5590,8 +5590,321 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
         Inserted = inserted
     });
 }
+
+        private static readonly Dictionary<string, string> SitePredictionColumnMap = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["site"] = "site",
+            ["site_name"] = "site_name",
+            ["sector"] = "sector",
+            ["cell_id"] = "cell_id",
+            ["sec_id"] = "sec_id",
+            ["longitude"] = "longitude",
+            ["latitude"] = "latitude",
+            ["tac"] = "tac",
+            ["pci"] = "pci",
+            ["azimuth"] = "azimuth",
+            ["height"] = "height",
+            ["bw"] = "bw",
+            ["m_tilt"] = "m_tilt",
+            ["e_tilt"] = "e_tilt",
+            ["maximum_transmission_power_of_resource"] = "maximum_transmission_power_of_resource",
+            ["real_transmit_power_of_resource"] = "real_transmit_power_of_resource",
+            ["reference_signal_power"] = "reference_signal_power",
+            ["cellsize"] = "cellsize",
+            ["frequency"] = "frequency",
+            ["band"] = "band",
+            ["uplink_center_frequency"] = "uplink_center_frequency",
+            ["downlink_frequency"] = "downlink_frequency",
+            ["earfcn"] = "earfcn",
+            ["cluster"] = "cluster",
+            ["Technology"] = "Technology",
+            ["technology"] = "Technology"
+        };
+
+        private static string BuildSitePredictionFilterClause(
+            int? site,
+            int? cellId,
+            string? cluster,
+            string? technology,
+            int? band,
+            int? pci,
+            string siteExpr,
+            string cellExpr,
+            string clusterExpr,
+            string technologyExpr,
+            string bandExpr,
+            string pciExpr)
+        {
+            var filters = new List<string>();
+
+            if (site.HasValue) filters.Add($"{siteExpr} = @site");
+            if (cellId.HasValue) filters.Add($"{cellExpr} = @cell");
+            if (!string.IsNullOrWhiteSpace(cluster)) filters.Add($"{clusterExpr} = @clus");
+            if (!string.IsNullOrWhiteSpace(technology)) filters.Add($"{technologyExpr} = @tech");
+            if (band.HasValue) filters.Add($"{bandExpr} = @band");
+            if (pci.HasValue) filters.Add($"{pciExpr} = @pci");
+
+            return filters.Count == 0 ? string.Empty : " AND " + string.Join(" AND ", filters);
+        }
+
+        private static void AddSitePredictionFilterParameters(
+            DbCommand cmd,
+            int? site,
+            int? cellId,
+            string? cluster,
+            string? technology,
+            int? band,
+            int? pci)
+        {
+            if (site.HasValue) Add(cmd, "@site", site.Value);
+            if (cellId.HasValue) Add(cmd, "@cell", cellId.Value);
+            if (!string.IsNullOrWhiteSpace(cluster)) Add(cmd, "@clus", cluster.Trim());
+            if (!string.IsNullOrWhiteSpace(technology)) Add(cmd, "@tech", technology.Trim());
+            if (band.HasValue) Add(cmd, "@band", band.Value);
+            if (pci.HasValue) Add(cmd, "@pci", pci.Value);
+        }
+
+        private async Task EnsureSitePredictionOptimizedTableAsync(DbConnection conn)
+        {
+            await using (var createCmd = conn.CreateCommand())
+            {
+                createCmd.CommandText = "CREATE TABLE IF NOT EXISTS site_prediction_optimized LIKE site_prediction;";
+                await createCmd.ExecuteNonQueryAsync();
+            }
+
+            var requiredColumns = new (string Name, string Definition)[]
+            {
+                ("site_prediction_id", "INT NULL"),
+                ("is_updated", "TINYINT(1) NOT NULL DEFAULT 1"),
+                ("version", "INT NOT NULL DEFAULT 1"),
+                ("status", "VARCHAR(20) NULL DEFAULT 'updated'"),
+                ("created_at", "DATETIME NULL"),
+                ("updated_at", "DATETIME NULL"),
+                ("updated_by", "VARCHAR(255) NULL")
+            };
+
+            foreach (var column in requiredColumns)
+            {
+                await using var existsCmd = conn.CreateCommand();
+                existsCmd.CommandText = @"
+                    SELECT COUNT(*)
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = 'site_prediction_optimized'
+                      AND COLUMN_NAME = @columnName;";
+                Add(existsCmd, "@columnName", column.Name);
+
+                var existsObj = await existsCmd.ExecuteScalarAsync();
+                var exists = existsObj != null && existsObj != DBNull.Value && Convert.ToInt32(existsObj) > 0;
+                if (exists)
+                {
+                    continue;
+                }
+
+                await using var alterCmd = conn.CreateCommand();
+                alterCmd.CommandText = $"ALTER TABLE site_prediction_optimized ADD COLUMN {column.Name} {column.Definition};";
+                await alterCmd.ExecuteNonQueryAsync();
+            }
+        }
+
+        private string ResolveSitePredictionUpdatedBy()
+        {
+            return User?.FindFirst("UserId")?.Value
+                ?? User?.Identity?.Name
+                ?? HttpContext?.Session?.GetInt32("UserID")?.ToString()
+                ?? "system";
+        }
+
+        [HttpGet, Route("GetUpdatedSitePrediction")]
+        public Task<IActionResult> GetUpdatedSitePrediction(
+            [FromQuery] long projectId,
+            [FromQuery] int? site = null,
+            [FromQuery] int? cell_id = null,
+            [FromQuery] string? cluster = null,
+            [FromQuery] string? technology = null,
+            [FromQuery] int? band = null,
+            [FromQuery] int? pci = null,
+            [FromQuery] int limit = 200,
+            [FromQuery] int offset = 0)
+        {
+            return GetSitePrediction(projectId, site, cell_id, cluster, technology, band, pci, limit, offset, "updated");
+        }
+
         [HttpGet, Route("GetSitePrediction")]
         public async Task<IActionResult> GetSitePrediction(
+            [FromQuery] long projectId,
+            [FromQuery] int? site = null,
+            [FromQuery] int? cell_id = null,
+            [FromQuery] string? cluster = null,
+            [FromQuery] string? technology = null,
+            [FromQuery] int? band = null,
+            [FromQuery] int? pci = null,
+            [FromQuery] int limit = 200,
+            [FromQuery] int offset = 0,
+            [FromQuery] string version = "original")
+        {
+            if (projectId <= 0)
+                return BadRequest(new { Status = 0, Message = "projectId is required" });
+
+            var requestedVersion = (version ?? "original").Trim().ToLowerInvariant();
+            if (requestedVersion != "original" && requestedVersion != "updated")
+            {
+                return BadRequest(new { Status = 0, Message = "version must be 'original' or 'updated'" });
+            }
+
+            var conn = db.Database.GetDbConnection();
+            if (conn.State != System.Data.ConnectionState.Open)
+                await conn.OpenAsync();
+
+            if (requestedVersion == "updated")
+            {
+                await EnsureSitePredictionOptimizedTableAsync(conn);
+            }
+
+            await using var cmd = conn.CreateCommand();
+            var filterClause = requestedVersion == "updated"
+                ? BuildSitePredictionFilterClause(
+                    site,
+                    cell_id,
+                    cluster,
+                    technology,
+                    band,
+                    pci,
+                    "COALESCE(spo.site, sp.site)",
+                    "COALESCE(spo.cell_id, sp.cell_id)",
+                    "COALESCE(spo.cluster, sp.cluster)",
+                    "COALESCE(spo.Technology, sp.Technology)",
+                    "COALESCE(spo.band, sp.band)",
+                    "COALESCE(spo.pci, sp.pci)")
+                : BuildSitePredictionFilterClause(
+                    site,
+                    cell_id,
+                    cluster,
+                    technology,
+                    band,
+                    pci,
+                    "sp.site",
+                    "sp.cell_id",
+                    "sp.cluster",
+                    "sp.Technology",
+                    "sp.band",
+                    "sp.pci");
+
+            cmd.CommandText = requestedVersion == "updated"
+                ? $@"
+                SELECT
+                    sp.id AS original_id,
+                    spo.id AS optimized_id,
+                    CASE WHEN spo.id IS NULL THEN 0 ELSE 1 END AS is_updated,
+                    COALESCE(spo.version, 0) AS version,
+                    COALESCE(spo.status, 'original') AS status,
+                    spo.created_at,
+                    spo.updated_at,
+                    spo.updated_by,
+                    COALESCE(spo.site, sp.site) AS site,
+                    COALESCE(spo.site_name, sp.site_name) AS site_name,
+                    COALESCE(spo.sector, sp.sector) AS sector,
+                    COALESCE(spo.cell_id, sp.cell_id) AS cell_id,
+                    COALESCE(spo.sec_id, sp.sec_id) AS sec_id,
+                    COALESCE(spo.longitude, sp.longitude) AS longitude,
+                    COALESCE(spo.latitude, sp.latitude) AS latitude,
+                    COALESCE(spo.tac, sp.tac) AS tac,
+                    COALESCE(spo.pci, sp.pci) AS pci,
+                    COALESCE(spo.azimuth, sp.azimuth) AS azimuth,
+                    COALESCE(spo.height, sp.height) AS height,
+                    COALESCE(spo.bw, sp.bw) AS bw,
+                    COALESCE(spo.m_tilt, sp.m_tilt) AS m_tilt,
+                    COALESCE(spo.e_tilt, sp.e_tilt) AS e_tilt,
+                    COALESCE(spo.maximum_transmission_power_of_resource, sp.maximum_transmission_power_of_resource) AS maximum_transmission_power_of_resource,
+                    COALESCE(spo.real_transmit_power_of_resource, sp.real_transmit_power_of_resource) AS real_transmit_power_of_resource,
+                    COALESCE(spo.reference_signal_power, sp.reference_signal_power) AS reference_signal_power,
+                    COALESCE(spo.cellsize, sp.cellsize) AS cellsize,
+                    COALESCE(spo.frequency, sp.frequency) AS frequency,
+                    COALESCE(spo.band, sp.band) AS band,
+                    COALESCE(spo.uplink_center_frequency, sp.uplink_center_frequency) AS uplink_center_frequency,
+                    COALESCE(spo.downlink_frequency, sp.downlink_frequency) AS downlink_frequency,
+                    COALESCE(spo.earfcn, sp.earfcn) AS earfcn,
+                    COALESCE(spo.cluster, sp.cluster) AS cluster,
+                    sp.tbl_project_id,
+                    COALESCE(spo.tbl_upload_id, sp.tbl_upload_id) AS tbl_upload_id,
+                    COALESCE(spo.Technology, sp.Technology) AS Technology
+                FROM site_prediction sp
+                LEFT JOIN site_prediction_optimized spo ON spo.site_prediction_id = sp.id
+                WHERE sp.tbl_project_id = @pid
+                {filterClause}
+                ORDER BY sp.id DESC
+                LIMIT @l OFFSET @o;"
+                : $@"
+                SELECT
+                    sp.id AS original_id,
+                    NULL AS optimized_id,
+                    0 AS is_updated,
+                    0 AS version,
+                    'original' AS status,
+                    NULL AS created_at,
+                    NULL AS updated_at,
+                    NULL AS updated_by,
+                    sp.site,
+                    sp.site_name,
+                    sp.sector,
+                    sp.cell_id,
+                    sp.sec_id,
+                    sp.longitude,
+                    sp.latitude,
+                    sp.tac,
+                    sp.pci,
+                    sp.azimuth,
+                    sp.height,
+                    sp.bw,
+                    sp.m_tilt,
+                    sp.e_tilt,
+                    sp.maximum_transmission_power_of_resource,
+                    sp.real_transmit_power_of_resource,
+                    sp.reference_signal_power,
+                    sp.cellsize,
+                    sp.frequency,
+                    sp.band,
+                    sp.uplink_center_frequency,
+                    sp.downlink_frequency,
+                    sp.earfcn,
+                    sp.cluster,
+                    sp.tbl_project_id,
+                    sp.tbl_upload_id,
+                    sp.Technology
+                FROM site_prediction sp
+                WHERE sp.tbl_project_id = @pid
+                {filterClause}
+                ORDER BY sp.id DESC
+                LIMIT @l OFFSET @o;";
+
+            Add(cmd, "@pid", projectId);
+            AddSitePredictionFilterParameters(cmd, site, cell_id, cluster, technology, band, pci);
+            Add(cmd, "@l", Math.Clamp(limit, 1, 2000));
+            Add(cmd, "@o", Math.Max(offset, 0));
+
+            var list = new List<Dictionary<string, object?>>();
+            await using var r = await cmd.ExecuteReaderAsync();
+            while (await r.ReadAsync())
+            {
+                var row = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+                for (int i = 0; i < r.FieldCount; i++)
+                {
+                    row[r.GetName(i)] = await r.IsDBNullAsync(i) ? null : r.GetValue(i);
+                }
+                list.Add(row);
+            }
+
+            return Json(new
+            {
+                Status = 1,
+                Version = requestedVersion,
+                Count = list.Count,
+                Data = list
+            });
+        }
+
+        [HttpGet, Route("CompareSitePrediction")]
+        public async Task<IActionResult> CompareSitePrediction(
             [FromQuery] long projectId,
             [FromQuery] int? site = null,
             [FromQuery] int? cell_id = null,
@@ -5605,74 +5918,95 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
             if (projectId <= 0)
                 return BadRequest(new { Status = 0, Message = "projectId is required" });
 
-            var sql = @"
-                SELECT
-                    id, site, site_name, sector, cell_id, sec_id,
-                    longitude, latitude, tac, pci, azimuth, height, bw,
-                    m_tilt, e_tilt, maximum_transmission_power_of_resource,
-                    real_transmit_power_of_resource,
-                    reference_signal_power, cellsize, frequency, band,
-                    uplink_center_frequency, downlink_frequency,
-                    earfcn, cluster,
-                    tbl_project_id, tbl_upload_id, Technology
-                FROM site_prediction
-                WHERE tbl_project_id = @pid
-                  /**site**/
-                  /**cell**/
-                  /**clus**/
-                  /**tech**/
-                  /**band**/
-                  /**pci**/
-                ORDER BY id DESC
-                LIMIT @l OFFSET @o;";
-
-            if (site.HasValue)
-                sql = sql.Replace("/**site**/", "AND site = @site");
-            else
-                sql = sql.Replace("/**site**/", "");
-
-            if (cell_id.HasValue)
-                sql = sql.Replace("/**cell**/", "AND cell_id = @cell");
-            else
-                sql = sql.Replace("/**cell**/", "");
-
-            if (!string.IsNullOrWhiteSpace(cluster))
-                sql = sql.Replace("/**clus**/", "AND cluster = @clus");
-            else
-                sql = sql.Replace("/**clus**/", "");
-
-            if (!string.IsNullOrWhiteSpace(technology))
-                sql = sql.Replace("/**tech**/", "AND Technology = @tech");
-            else
-                sql = sql.Replace("/**tech**/", "");
-
-            if (band.HasValue)
-                sql = sql.Replace("/**band**/", "AND band = @band");
-            else
-                sql = sql.Replace("/**band**/", "");
-
-            if (pci.HasValue)
-                sql = sql.Replace("/**pci**/", "AND pci = @pci");
-            else
-                sql = sql.Replace("/**pci**/", "");
-
             var conn = db.Database.GetDbConnection();
             if (conn.State != System.Data.ConnectionState.Open)
                 await conn.OpenAsync();
-               
+
+            await EnsureSitePredictionOptimizedTableAsync(conn);
 
             await using var cmd = conn.CreateCommand();
-            cmd.CommandText = sql;
-           
+            var filterClause = BuildSitePredictionFilterClause(
+                site,
+                cell_id,
+                cluster,
+                technology,
+                band,
+                pci,
+                "COALESCE(spo.site, sp.site)",
+                "COALESCE(spo.cell_id, sp.cell_id)",
+                "COALESCE(spo.cluster, sp.cluster)",
+                "COALESCE(spo.Technology, sp.Technology)",
+                "COALESCE(spo.band, sp.band)",
+                "COALESCE(spo.pci, sp.pci)");
+
+            cmd.CommandText = $@"
+                SELECT
+                    sp.id AS original_id,
+                    spo.id AS optimized_id,
+                    spo.version,
+                    spo.status,
+                    spo.created_at,
+                    spo.updated_at,
+                    spo.updated_by,
+                    sp.site AS original_site,
+                    spo.site AS updated_site,
+                    sp.site_name AS original_site_name,
+                    spo.site_name AS updated_site_name,
+                    sp.sector AS original_sector,
+                    spo.sector AS updated_sector,
+                    sp.cell_id AS original_cell_id,
+                    spo.cell_id AS updated_cell_id,
+                    sp.sec_id AS original_sec_id,
+                    spo.sec_id AS updated_sec_id,
+                    sp.longitude AS original_longitude,
+                    spo.longitude AS updated_longitude,
+                    sp.latitude AS original_latitude,
+                    spo.latitude AS updated_latitude,
+                    sp.tac AS original_tac,
+                    spo.tac AS updated_tac,
+                    sp.pci AS original_pci,
+                    spo.pci AS updated_pci,
+                    sp.azimuth AS original_azimuth,
+                    spo.azimuth AS updated_azimuth,
+                    sp.height AS original_height,
+                    spo.height AS updated_height,
+                    sp.bw AS original_bw,
+                    spo.bw AS updated_bw,
+                    sp.m_tilt AS original_m_tilt,
+                    spo.m_tilt AS updated_m_tilt,
+                    sp.e_tilt AS original_e_tilt,
+                    spo.e_tilt AS updated_e_tilt,
+                    sp.maximum_transmission_power_of_resource AS original_maximum_transmission_power_of_resource,
+                    spo.maximum_transmission_power_of_resource AS updated_maximum_transmission_power_of_resource,
+                    sp.real_transmit_power_of_resource AS original_real_transmit_power_of_resource,
+                    spo.real_transmit_power_of_resource AS updated_real_transmit_power_of_resource,
+                    sp.reference_signal_power AS original_reference_signal_power,
+                    spo.reference_signal_power AS updated_reference_signal_power,
+                    sp.cellsize AS original_cellsize,
+                    spo.cellsize AS updated_cellsize,
+                    sp.frequency AS original_frequency,
+                    spo.frequency AS updated_frequency,
+                    sp.band AS original_band,
+                    spo.band AS updated_band,
+                    sp.uplink_center_frequency AS original_uplink_center_frequency,
+                    spo.uplink_center_frequency AS updated_uplink_center_frequency,
+                    sp.downlink_frequency AS original_downlink_frequency,
+                    spo.downlink_frequency AS updated_downlink_frequency,
+                    sp.earfcn AS original_earfcn,
+                    spo.earfcn AS updated_earfcn,
+                    sp.cluster AS original_cluster,
+                    spo.cluster AS updated_cluster,
+                    sp.Technology AS original_technology,
+                    spo.Technology AS updated_technology
+                FROM site_prediction sp
+                INNER JOIN site_prediction_optimized spo ON spo.site_prediction_id = sp.id
+                WHERE sp.tbl_project_id = @pid
+                {filterClause}
+                ORDER BY sp.id DESC
+                LIMIT @l OFFSET @o;";
 
             Add(cmd, "@pid", projectId);
-            if (site.HasValue) Add(cmd, "@site", site.Value);
-            if (cell_id.HasValue) Add(cmd, "@cell", cell_id.Value);
-            if (!string.IsNullOrWhiteSpace(cluster)) Add(cmd, "@clus", cluster);
-            if (!string.IsNullOrWhiteSpace(technology)) Add(cmd, "@tech", technology);
-            if (band.HasValue) Add(cmd, "@band", band.Value);
-            if (pci.HasValue) Add(cmd, "@pci", pci.Value);
-
+            AddSitePredictionFilterParameters(cmd, site, cell_id, cluster, technology, band, pci);
             Add(cmd, "@l", Math.Clamp(limit, 1, 2000));
             Add(cmd, "@o", Math.Max(offset, 0));
 
@@ -5730,44 +6064,17 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                 if (items.Count == 0)
                     return Ok(new { Status = 1, Message = "No items to update" });
 
-                var columnByIncomingKey = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-                {
-                    ["site"] = "site",
-                    ["site_name"] = "site_name",
-                    ["sector"] = "sector",
-                    ["cell_id"] = "cell_id",
-                    ["sec_id"] = "sec_id",
-                    ["longitude"] = "longitude",
-                    ["latitude"] = "latitude",
-                    ["tac"] = "tac",
-                    ["pci"] = "pci",
-                    ["azimuth"] = "azimuth",
-                    ["height"] = "height",
-                    ["bw"] = "bw",
-                    ["m_tilt"] = "m_tilt",
-                    ["e_tilt"] = "e_tilt",
-                    ["maximum_transmission_power_of_resource"] = "maximum_transmission_power_of_resource",
-                    ["real_transmit_power_of_resource"] = "real_transmit_power_of_resource",
-                    ["reference_signal_power"] = "reference_signal_power",
-                    ["cellsize"] = "cellsize",
-                    ["frequency"] = "frequency",
-                    ["band"] = "band",
-                    ["uplink_center_frequency"] = "uplink_center_frequency",
-                    ["downlink_frequency"] = "downlink_frequency",
-                    ["earfcn"] = "earfcn",
-                    ["cluster"] = "cluster",
-                    ["Technology"] = "Technology",
-                    ["technology"] = "Technology"
-                };
-
                 var conn = db.Database.GetDbConnection();
                 if (conn.State != System.Data.ConnectionState.Open)
                     await conn.OpenAsync();
+
+                await EnsureSitePredictionOptimizedTableAsync(conn);
 
                 int totalUpdated = 0;
                 var requestedIds = new List<long>();
                 var updatedIds = new List<long>();
                 var skippedIds = new List<long>();
+                var updatedBy = ResolveSitePredictionUpdatedBy();
 
                 await using var tx = await conn.BeginTransactionAsync();
 
@@ -5786,7 +6093,7 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                         var key = prop.Name;
                         if (key.Equals("id", StringComparison.OrdinalIgnoreCase)) continue;
 
-                        if (columnByIncomingKey.TryGetValue(key, out var dbColumn))
+                        if (SitePredictionColumnMap.TryGetValue(key, out var dbColumn))
                         {
                             if (!seenDbColumns.Add(dbColumn)) continue;
                             string paramName = "@" + key + "_" + id;
@@ -5808,11 +6115,153 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
 
                     if (updates.Count > 0)
                     {
-                        var sql = $"UPDATE site_prediction SET {string.Join(", ", updates)} WHERE id = @id_{id}";
+                        await using (var seedCmd = conn.CreateCommand())
+                        {
+                            seedCmd.Transaction = tx;
+                            seedCmd.CommandText = @"
+                                INSERT INTO site_prediction_optimized (
+                                    site_prediction_id,
+                                    tbl_project_id,
+                                    tbl_upload_id,
+                                    site,
+                                    site_name,
+                                    sector,
+                                    cell_id,
+                                    sec_id,
+                                    longitude,
+                                    latitude,
+                                    tac,
+                                    pci,
+                                    azimuth,
+                                    height,
+                                    bw,
+                                    m_tilt,
+                                    e_tilt,
+                                    maximum_transmission_power_of_resource,
+                                    real_transmit_power_of_resource,
+                                    reference_signal_power,
+                                    cellsize,
+                                    frequency,
+                                    band,
+                                    uplink_center_frequency,
+                                    downlink_frequency,
+                                    earfcn,
+                                    Timestamp,
+                                    SourceIP,
+                                    DestinationIP,
+                                    SourcePort,
+                                    DestinationPort,
+                                    Protocol,
+                                    PacketSize,
+                                    Flags,
+                                    TimeToLive,
+                                    Length,
+                                    Info,
+                                    Battery,
+                                    Network,
+                                    dls,
+                                    uls,
+                                    total_rx_kb,
+                                    total_tx_kb,
+                                    HotSpot,
+                                    Apps,
+                                    MOS,
+                                    RSRP,
+                                    RSRQ,
+                                    SINR,
+                                    cluster,
+                                    Technology,
+                                    is_updated,
+                                    version,
+                                    status,
+                                    created_at,
+                                    updated_at,
+                                    updated_by
+                                )
+                                SELECT
+                                    sp.id,
+                                    sp.tbl_project_id,
+                                    sp.tbl_upload_id,
+                                    sp.site,
+                                    sp.site_name,
+                                    sp.sector,
+                                    sp.cell_id,
+                                    sp.sec_id,
+                                    sp.longitude,
+                                    sp.latitude,
+                                    sp.tac,
+                                    sp.pci,
+                                    sp.azimuth,
+                                    sp.height,
+                                    sp.bw,
+                                    sp.m_tilt,
+                                    sp.e_tilt,
+                                    sp.maximum_transmission_power_of_resource,
+                                    sp.real_transmit_power_of_resource,
+                                    sp.reference_signal_power,
+                                    sp.cellsize,
+                                    sp.frequency,
+                                    sp.band,
+                                    sp.uplink_center_frequency,
+                                    sp.downlink_frequency,
+                                    sp.earfcn,
+                                    sp.Timestamp,
+                                    sp.SourceIP,
+                                    sp.DestinationIP,
+                                    sp.SourcePort,
+                                    sp.DestinationPort,
+                                    sp.Protocol,
+                                    sp.PacketSize,
+                                    sp.Flags,
+                                    sp.TimeToLive,
+                                    sp.Length,
+                                    sp.Info,
+                                    sp.Battery,
+                                    sp.Network,
+                                    sp.dls,
+                                    sp.uls,
+                                    sp.total_rx_kb,
+                                    sp.total_tx_kb,
+                                    sp.HotSpot,
+                                    sp.Apps,
+                                    sp.MOS,
+                                    sp.RSRP,
+                                    sp.RSRQ,
+                                    sp.SINR,
+                                    sp.cluster,
+                                    sp.Technology,
+                                    1,
+                                    0,
+                                    'updated',
+                                    UTC_TIMESTAMP(),
+                                    UTC_TIMESTAMP(),
+                                    @updatedBy
+                                FROM site_prediction sp
+                                WHERE sp.id = @sourceId
+                                  AND NOT EXISTS (
+                                      SELECT 1
+                                      FROM site_prediction_optimized spo
+                                      WHERE spo.site_prediction_id = @sourceId
+                                  );";
+                            Add(seedCmd, "@sourceId", id);
+                            Add(seedCmd, "@updatedBy", updatedBy);
+                            await seedCmd.ExecuteNonQueryAsync();
+                        }
+
+                        var sql = $@"
+                            UPDATE site_prediction_optimized
+                            SET {string.Join(", ", updates)},
+                                is_updated = 1,
+                                status = 'updated',
+                                version = COALESCE(version, 0) + 1,
+                                updated_at = UTC_TIMESTAMP(),
+                                updated_by = @updatedBy_{id}
+                            WHERE site_prediction_id = @id_{id}";
                         await using var cmd = conn.CreateCommand();
                         cmd.Transaction = tx;
                         cmd.CommandText = sql;
                         Add(cmd, $"@id_{id}", id);
+                        Add(cmd, $"@updatedBy_{id}", updatedBy);
                         
                         foreach (var kvp in parameters)
                         {

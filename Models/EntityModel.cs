@@ -766,6 +766,79 @@ public class IndoorOutdoorLogDto
     public string? technology { get; set; }
 }
 
+    [Table("site_prediction_optimized")]
+    public class site_prediction_optimized
+    {
+        [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        public int id { get; set; }
+
+        public int site_prediction_id { get; set; }
+
+        public int tbl_project_id { get; set; }
+        public int tbl_upload_id { get; set; }
+
+        public int? site { get; set; }
+        public int? site_name { get; set; }
+        public string? sector { get; set; }
+        public int? cell_id { get; set; }
+        public int? sec_id { get; set; }
+        public double? longitude { get; set; }
+        public double? latitude { get; set; }
+        public int? tac { get; set; }
+        public int? pci { get; set; }
+        public int? azimuth { get; set; }
+        public int? height { get; set; }
+        public int? bw { get; set; }
+        public int? m_tilt { get; set; }
+        public int? e_tilt { get; set; }
+        public double? maximum_transmission_power_of_resource { get; set; }
+        public double? real_transmit_power_of_resource { get; set; }
+        public double? reference_signal_power { get; set; }
+        public string? cellsize { get; set; }
+        public string? frequency { get; set; }
+        public int? band { get; set; }
+        public string? uplink_center_frequency { get; set; }
+        public string? downlink_frequency { get; set; }
+        public int? earfcn { get; set; }
+
+        public string? Timestamp { get; set; }
+        public string? SourceIP { get; set; }
+        public string? DestinationIP { get; set; }
+        public string? SourcePort { get; set; }
+        public string? DestinationPort { get; set; }
+        public string? Protocol { get; set; }
+        public string? PacketSize { get; set; }
+        public string? Flags { get; set; }
+        public string? TimeToLive { get; set; }
+        public string? Length { get; set; }
+        public string? Info { get; set; }
+
+        public string? Battery { get; set; }
+        public string? Network { get; set; }
+        public string? dls { get; set; }
+        public string? uls { get; set; }
+        public string? total_rx_kb { get; set; }
+        public string? total_tx_kb { get; set; }
+        public string? HotSpot { get; set; }
+        public string? Apps { get; set; }
+        public string? MOS { get; set; }
+
+        public string? RSRP { get; set; }
+        public string? RSRQ { get; set; }
+        public string? SINR { get; set; }
+
+        public string? cluster { get; set; }
+        public string? technology { get; set; }
+
+        public bool is_updated { get; set; } = true;
+        public int version { get; set; } = 1;
+        public string? status { get; set; } = "updated";
+        public DateTime? created_at { get; set; }
+        public DateTime? updated_at { get; set; }
+        public string? updated_by { get; set; }
+    }
+
     // ========================= Projects & Regions =========================
     public class tbl_project
     {

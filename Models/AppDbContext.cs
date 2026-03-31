@@ -64,6 +64,7 @@ protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         // ======= Prediction & Thresholds =======
         public DbSet<tbl_prediction_data> tbl_prediction_data => Set<tbl_prediction_data>();
         public DbSet<site_prediction> site_prediction => Set<site_prediction>();
+        public DbSet<site_prediction_optimized> site_prediction_optimized => Set<site_prediction_optimized>();
         public DbSet<thresholds> thresholds => Set<thresholds>(); // Kept this one, removed duplicate 'tbl_threshold'
 
         // ======= Projects, Regions, Uploads =======
@@ -187,6 +188,12 @@ protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             {
                 e.HasKey(x => x.id);
                 // Already has [Table] attribute in class definition
+            });
+
+            modelBuilder.Entity<site_prediction_optimized>(e =>
+            {
+                e.HasKey(x => x.id);
+                e.ToTable("site_prediction_optimized");
             });
 
             modelBuilder.Entity<tbl_project>(e =>

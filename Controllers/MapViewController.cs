@@ -5707,6 +5707,29 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
             }
         }
 
+        private static async Task<HashSet<string>> GetTableColumnSetAsync(DbConnection conn, string tableName)
+        {
+            var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+                SELECT COLUMN_NAME
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = @tableName;";
+            Add(cmd, "@tableName", tableName);
+
+            await using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                var name = reader.IsDBNull(0) ? null : reader.GetString(0);
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    columns.Add(name);
+                }
+            }
+            return columns;
+        }
+
         private string ResolveSitePredictionUpdatedBy()
         {
             return User?.FindFirst("UserId")?.Value
@@ -6088,6 +6111,34 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                     await conn.OpenAsync();
 
                 await EnsureSitePredictionOptimizedTableAsync(conn);
+                var sourceColumns = await GetTableColumnSetAsync(conn, "site_prediction");
+                var optimizedColumns = await GetTableColumnSetAsync(conn, "site_prediction_optimized");
+                var reservedOptimizedColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    "id",
+                    "site_prediction_id",
+                    "is_updated",
+                    "version",
+                    "status",
+                    "created_at",
+                    "updated_at",
+                    "updated_by"
+                };
+                var copyColumns = sourceColumns
+                    .Where(col => optimizedColumns.Contains(col) && !reservedOptimizedColumns.Contains(col))
+                    .ToList();
+
+                if (copyColumns.Count == 0)
+                {
+                    throw new InvalidOperationException("No common columns found between site_prediction and site_prediction_optimized.");
+                }
+
+                var insertColumnList = string.Join(
+                    ",\n                                    ",
+                    copyColumns.Select(col => $"`{col}`"));
+                var selectColumnList = string.Join(
+                    ",\n                                    ",
+                    copyColumns.Select(col => $"sp.`{col}`"));
 
                 int totalUpdated = 0;
                 var requestedIds = new List<long>();
@@ -6127,59 +6178,10 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                         await using (var seedCmd = conn.CreateCommand())
                         {
                             seedCmd.Transaction = tx;
-                            seedCmd.CommandText = @"
+                            seedCmd.CommandText = $@"
                                 INSERT INTO site_prediction_optimized (
                                     site_prediction_id,
-                                    tbl_project_id,
-                                    tbl_upload_id,
-                                    site,
-                                    site_name,
-                                    sector,
-                                    cell_id,
-                                    sec_id,
-                                    longitude,
-                                    latitude,
-                                    tac,
-                                    pci,
-                                    azimuth,
-                                    height,
-                                    bw,
-                                    m_tilt,
-                                    e_tilt,
-                                    maximum_transmission_power_of_resource,
-                                    real_transmit_power_of_resource,
-                                    reference_signal_power,
-                                    cellsize,
-                                    frequency,
-                                    band,
-                                    uplink_center_frequency,
-                                    downlink_frequency,
-                                    earfcn,
-                                    Timestamp,
-                                    SourceIP,
-                                    DestinationIP,
-                                    SourcePort,
-                                    DestinationPort,
-                                    Protocol,
-                                    PacketSize,
-                                    Flags,
-                                    TimeToLive,
-                                    Length,
-                                    Info,
-                                    Battery,
-                                    Network,
-                                    dls,
-                                    uls,
-                                    total_rx_kb,
-                                    total_tx_kb,
-                                    HotSpot,
-                                    Apps,
-                                    MOS,
-                                    RSRP,
-                                    RSRQ,
-                                    SINR,
-                                    cluster,
-                                    Technology,
+                                    {insertColumnList},
                                     is_updated,
                                     version,
                                     status,
@@ -6189,56 +6191,7 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                                 )
                                 SELECT
                                     sp.id,
-                                    sp.tbl_project_id,
-                                    sp.tbl_upload_id,
-                                    sp.site,
-                                    sp.site_name,
-                                    sp.sector,
-                                    sp.cell_id,
-                                    sp.sec_id,
-                                    sp.longitude,
-                                    sp.latitude,
-                                    sp.tac,
-                                    sp.pci,
-                                    sp.azimuth,
-                                    sp.height,
-                                    sp.bw,
-                                    sp.m_tilt,
-                                    sp.e_tilt,
-                                    sp.maximum_transmission_power_of_resource,
-                                    sp.real_transmit_power_of_resource,
-                                    sp.reference_signal_power,
-                                    sp.cellsize,
-                                    sp.frequency,
-                                    sp.band,
-                                    sp.uplink_center_frequency,
-                                    sp.downlink_frequency,
-                                    sp.earfcn,
-                                    sp.Timestamp,
-                                    sp.SourceIP,
-                                    sp.DestinationIP,
-                                    sp.SourcePort,
-                                    sp.DestinationPort,
-                                    sp.Protocol,
-                                    sp.PacketSize,
-                                    sp.Flags,
-                                    sp.TimeToLive,
-                                    sp.Length,
-                                    sp.Info,
-                                    sp.Battery,
-                                    sp.Network,
-                                    sp.dls,
-                                    sp.uls,
-                                    sp.total_rx_kb,
-                                    sp.total_tx_kb,
-                                    sp.HotSpot,
-                                    sp.Apps,
-                                    sp.MOS,
-                                    sp.RSRP,
-                                    sp.RSRQ,
-                                    sp.SINR,
-                                    sp.cluster,
-                                    sp.Technology,
+                                    {selectColumnList},
                                     1,
                                     0,
                                     'updated',

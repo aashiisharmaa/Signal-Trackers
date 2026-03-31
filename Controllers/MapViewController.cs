@@ -5768,7 +5768,7 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
             [FromQuery] int limit = 200,
             [FromQuery] int offset = 0)
         {
-            return GetSitePrediction(projectId, site, cell_id, cluster, technology, band, pci, limit, offset, "updated");
+            return GetSitePrediction(projectId, site, cell_id, cluster, technology, band, pci, limit, offset, "combined");
         }
 
         [HttpGet, Route("GetSitePrediction")]
@@ -5782,28 +5782,33 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
             [FromQuery] int? pci = null,
             [FromQuery] int limit = 200,
             [FromQuery] int offset = 0,
-            [FromQuery] string version = "original")
+            [FromQuery] string version = "combined")
         {
             if (projectId <= 0)
                 return BadRequest(new { Status = 0, Message = "projectId is required" });
 
-            var requestedVersion = (version ?? "original").Trim().ToLowerInvariant();
-            if (requestedVersion != "original" && requestedVersion != "updated")
+            var requestedVersion = (version ?? "combined").Trim().ToLowerInvariant();
+            if (requestedVersion == "updated")
             {
-                return BadRequest(new { Status = 0, Message = "version must be 'original' or 'updated'" });
+                requestedVersion = "combined";
+            }
+
+            if (requestedVersion != "original" && requestedVersion != "combined")
+            {
+                return BadRequest(new { Status = 0, Message = "version must be 'original' or 'combined'" });
             }
 
             var conn = db.Database.GetDbConnection();
             if (conn.State != System.Data.ConnectionState.Open)
                 await conn.OpenAsync();
 
-            if (requestedVersion == "updated")
+            if (requestedVersion == "combined")
             {
                 await EnsureSitePredictionOptimizedTableAsync(conn);
             }
 
             await using var cmd = conn.CreateCommand();
-            var filterClause = requestedVersion == "updated"
+            var filterClause = requestedVersion == "combined"
                 ? BuildSitePredictionFilterClause(
                     site,
                     cell_id,
@@ -5831,7 +5836,7 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                     "sp.band",
                     "sp.pci");
 
-            cmd.CommandText = requestedVersion == "updated"
+            cmd.CommandText = requestedVersion == "combined"
                 ? $@"
                 SELECT
                     sp.id AS original_id,

@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;     // for Regex
@@ -6235,7 +6235,7 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                     }
                 }
                 else if (payloadTokens is Newtonsoft.Json.Linq.JObject obj)
-                {
+                { 
                     items.Add(obj);
                 }
                 else
@@ -7752,6 +7752,129 @@ public async Task<IActionResult> GetLtePredictionLocationStatsRefined(
     catch (Exception ex)
     {
         return StatusCode(500, new { Status = 0, Message = "Error calculating location stats: " + ex.Message });
+    }
+}
+
+[HttpGet, Route("GetSitePredictionBase")]
+public async Task<IActionResult> GetSitePredictionBase(
+    [FromQuery] int projectId,
+    [FromQuery] string? siteId = null,
+    [FromQuery] int? take = null,
+    [FromQuery] int skip = 0)
+{
+    if (projectId <= 0)
+        return BadRequest(new { Status = 0, Message = "A valid projectId is required." });
+
+    if (skip < 0) skip = 0;
+    if (take.HasValue && take.Value <= 0)
+        return BadRequest(new { Status = 0, Message = "take must be greater than 0." });
+
+    try
+    {
+        var conn = db.Database.GetDbConnection();
+        if (conn.State != ConnectionState.Open)
+            await conn.OpenAsync();
+
+        var columns = await GetTableColumnSetAsync(conn, "site_prediction_base");
+        var hasSiteIdColumn = columns.Contains("site_id");
+        string SelectColumnOrNull(string columnName, string alias)
+            => columns.Contains(columnName) ? $"s.{columnName}" : $"NULL AS {alias}";
+
+        if (!string.IsNullOrWhiteSpace(siteId) && !hasSiteIdColumn)
+        {
+            return BadRequest(new
+            {
+                Status = 0,
+                Message = "The site_prediction_base table does not contain a site_id column, so siteId filtering cannot be applied."
+            });
+        }
+
+        var selectSiteId = hasSiteIdColumn ? "s.site_id" : "NULL AS site_id";
+        var siteFilterClause = !string.IsNullOrWhiteSpace(siteId) && hasSiteIdColumn
+            ? " AND s.site_id = @siteId"
+            : string.Empty;
+
+        await using var countCmd = conn.CreateCommand();
+        countCmd.CommandText = $@"
+            SELECT COUNT(*)
+            FROM site_prediction_base s
+            WHERE s.project_id = @projectId{siteFilterClause};";
+        Add(countCmd, "@projectId", projectId);
+        if (!string.IsNullOrWhiteSpace(siteId) && hasSiteIdColumn)
+            Add(countCmd, "@siteId", siteId.Trim());
+
+        var totalObj = await countCmd.ExecuteScalarAsync();
+        var total = totalObj == null || totalObj == DBNull.Value ? 0 : Convert.ToInt32(totalObj);
+
+        var pagingClause = take.HasValue
+            ? " LIMIT @take OFFSET @skip"
+            : " LIMIT 18446744073709551615 OFFSET @skip";
+
+        await using var dataCmd = conn.CreateCommand();
+        dataCmd.CommandText = $@"
+            SELECT
+                {SelectColumnOrNull("id", "id")},
+                {SelectColumnOrNull("project_id", "project_id")},
+                {SelectColumnOrNull("job_id", "job_id")},
+                {selectSiteId},
+                {SelectColumnOrNull("lat", "lat")},
+                {SelectColumnOrNull("lon", "lon")},
+                {SelectColumnOrNull("pred_rsrp", "pred_rsrp")},
+                {SelectColumnOrNull("pred_rsrq", "pred_rsrq")},
+                {SelectColumnOrNull("pred_sinr", "pred_sinr")},
+                {SelectColumnOrNull("node_b_id", "node_b_id")},
+                {SelectColumnOrNull("cell_id", "cell_id")},
+                {SelectColumnOrNull("operator", "operator")},
+                {SelectColumnOrNull("created_at", "created_at")}
+            FROM site_prediction_base s
+            WHERE s.project_id = @projectId{siteFilterClause}
+            ORDER BY s.id DESC{pagingClause};";
+
+        Add(dataCmd, "@projectId", projectId);
+        if (!string.IsNullOrWhiteSpace(siteId) && hasSiteIdColumn)
+            Add(dataCmd, "@siteId", siteId.Trim());
+        Add(dataCmd, "@skip", skip);
+        if (take.HasValue)
+            Add(dataCmd, "@take", take.Value);
+
+        var items = new List<object>();
+        await using var reader = await dataCmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            items.Add(new
+            {
+                id = await reader.IsDBNullAsync(0) ? null : reader.GetValue(0),
+                project_id = await reader.IsDBNullAsync(1) ? null : reader.GetValue(1),
+                job_id = await reader.IsDBNullAsync(2) ? null : reader.GetValue(2),
+                site_id = await reader.IsDBNullAsync(3) ? null : reader.GetValue(3),
+                lat = await reader.IsDBNullAsync(4) ? null : reader.GetValue(4),
+                lon = await reader.IsDBNullAsync(5) ? null : reader.GetValue(5),
+                pred_rsrp = await reader.IsDBNullAsync(6) ? null : reader.GetValue(6),
+                pred_rsrq = await reader.IsDBNullAsync(7) ? null : reader.GetValue(7),
+                pred_sinr = await reader.IsDBNullAsync(8) ? null : reader.GetValue(8),
+                node_b_id = await reader.IsDBNullAsync(9) ? null : reader.GetValue(9),
+                cell_id = await reader.IsDBNullAsync(10) ? null : reader.GetValue(10),
+                operator_name = await reader.IsDBNullAsync(11) ? null : reader.GetValue(11),
+                created_at = await reader.IsDBNullAsync(12) ? null : reader.GetValue(12)
+            });
+        }
+
+        return Ok(new
+        {
+            Status = 1,
+            ProjectId = projectId,
+            SiteIdFiltered = string.IsNullOrWhiteSpace(siteId) ? "All" : siteId.Trim(),
+            SiteIdColumnExists = hasSiteIdColumn,
+            Total = total,
+            Skip = skip,
+            Take = take,
+            Count = items.Count,
+            Data = items
+        });
+    }
+    catch (Exception ex)
+    {
+        return StatusCode(500, new { Status = 0, Message = "Error fetching site prediction base data: " + ex.Message });
     }
 }
 

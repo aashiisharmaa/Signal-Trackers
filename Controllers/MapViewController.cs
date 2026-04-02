@@ -7766,46 +7766,19 @@ public async Task<IActionResult> GetLtePredictionLocationStatsRefined(
 
 [HttpGet, Route("GetSitePredictionBase")]
 public async Task<IActionResult> GetSitePredictionBase(
-    [FromQuery(Name = "cell_id")] string? cellId = null,
-    [FromQuery] int? take = null,
-    [FromQuery] int skip = 0,
-    [FromQuery] bool fetchAll = false)
+    [FromQuery(Name = "cell_id")] string? cellId = null)
 {
-    if (skip < 0) skip = 0;
-    if (take.HasValue && take.Value <= 0)
-        return BadRequest(new { Status = 0, Message = "take must be greater than 0." });
     if (string.IsNullOrWhiteSpace(cellId))
         return BadRequest(new { Status = 0, Message = "cell_id is required." });
 
     try
     {
         const string tableName = "lte_prediction_baseline_results";
-        int? effectiveTake = fetchAll ? (int?)null : (take ?? 20000);
-        if (effectiveTake.HasValue && effectiveTake.Value > 20000)
-            effectiveTake = 20000;
-
         var trimmedCellId = cellId.Trim();
         var query = db.site_prediction_base
             .AsNoTracking()
-            .Where(x => x.cell_id == trimmedCellId);
-
-        int? total = null;
-        if (effectiveTake.HasValue || skip > 0)
-        {
-            total = await query.CountAsync();
-        }
-
-        query = query.OrderByDescending(x => x.id);
-
-        if (skip > 0)
-        {
-            query = query.Skip(skip);
-        }
-
-        if (effectiveTake.HasValue)
-        {
-            query = query.Take(effectiveTake.Value);
-        }
+            .Where(x => x.cell_id == trimmedCellId)
+            .OrderByDescending(x => x.id);
 
         var items = await query
             .Select(x => new
@@ -7827,17 +7800,12 @@ public async Task<IActionResult> GetSitePredictionBase(
             })
             .ToListAsync();
 
-        total ??= skip == 0 ? items.Count : 0;
-
         return Ok(new
         {
             Status = 1,
             Table = tableName,
             CellIdFiltered = trimmedCellId,
-            Total = total,
-            Skip = skip,
-            Take = effectiveTake,
-            FetchAll = fetchAll,
+            Total = items.Count,
             Count = items.Count,
             Data = items
         });
@@ -7850,46 +7818,19 @@ public async Task<IActionResult> GetSitePredictionBase(
 
 [HttpGet, Route("GetSitePredictionOptimised")]
 public async Task<IActionResult> GetSitePredictionOptimised(
-    [FromQuery(Name = "cell_id")] string? cellId = null,
-    [FromQuery] int? take = null,
-    [FromQuery] int skip = 0,
-    [FromQuery] bool fetchAll = false)
+    [FromQuery(Name = "cell_id")] string? cellId = null)
 {
-    if (skip < 0) skip = 0;
-    if (take.HasValue && take.Value <= 0)
-        return BadRequest(new { Status = 0, Message = "take must be greater than 0." });
     if (string.IsNullOrWhiteSpace(cellId))
         return BadRequest(new { Status = 0, Message = "cell_id is required." });
 
     try
     {
         const string tableName = "lte_prediction_optimised_results";
-        int? effectiveTake = fetchAll ? (int?)null : (take ?? 20000);
-        if (effectiveTake.HasValue && effectiveTake.Value > 20000)
-            effectiveTake = 20000;
-
         var trimmedCellId = cellId.Trim();
         var query = db.lte_prediction_optimised_results
             .AsNoTracking()
-            .Where(x => x.cell_id == trimmedCellId);
-
-        int? total = null;
-        if (effectiveTake.HasValue || skip > 0)
-        {
-            total = await query.CountAsync();
-        }
-
-        query = query.OrderByDescending(x => x.id);
-
-        if (skip > 0)
-        {
-            query = query.Skip(skip);
-        }
-
-        if (effectiveTake.HasValue)
-        {
-            query = query.Take(effectiveTake.Value);
-        }
+            .Where(x => x.cell_id == trimmedCellId)
+            .OrderByDescending(x => x.id);
 
         var items = await query
             .Select(x => new
@@ -7911,17 +7852,12 @@ public async Task<IActionResult> GetSitePredictionOptimised(
             })
             .ToListAsync();
 
-        total ??= skip == 0 ? items.Count : 0;
-
         return Ok(new
         {
             Status = 1,
             Table = tableName,
             CellIdFiltered = trimmedCellId,
-            Total = total,
-            Skip = skip,
-            Take = effectiveTake,
-            FetchAll = fetchAll,
+            Total = items.Count,
             Count = items.Count,
             Data = items
         });

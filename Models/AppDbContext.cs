@@ -200,7 +200,7 @@ protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             modelBuilder.Entity<site_prediction_base>(e =>
             {
                 e.HasKey(x => x.id);
-                e.ToTable("site_prediction_base");
+                e.ToTable("lte_prediction_baseline_results");
             });
 
             modelBuilder.Entity<tbl_project>(e =>

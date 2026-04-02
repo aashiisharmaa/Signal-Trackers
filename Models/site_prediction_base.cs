@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace SignalTracker.Models
 {
-    [Table("site_prediction_base")]
+    [Table("lte_prediction_baseline_results")]
     public class site_prediction_base
     {
         [Key]
@@ -49,5 +49,9 @@ namespace SignalTracker.Models
         [Column("site_id")]
         [StringLength(255)]
         public string? site_id { get; set; }
+
+        [Column("nodeb_id_cell_id")]
+        [StringLength(255)]
+        public string? nodeb_id_cell_id { get; set; }
     }
 }

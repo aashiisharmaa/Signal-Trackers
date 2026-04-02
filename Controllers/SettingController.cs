@@ -153,6 +153,7 @@ public IActionResult SaveThreshold([FromBody] thresholds model)
             existing.latency = model.latency;
               existing.dominance = model.dominance;
                 existing.coverage_violation = model.coverage_violation;
+                existing.delta_json = model.delta_json;
             db.thresholds.Update(existing);
         }
         else

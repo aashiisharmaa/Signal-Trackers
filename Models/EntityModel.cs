@@ -940,6 +940,7 @@ public string? level { get; set; }
 
       
         public double? coveragehole_value { get; set; }
+        public string? delta_json { get; set; }
     }
 
 [Table("tbl_company")]

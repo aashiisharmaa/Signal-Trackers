@@ -6089,134 +6089,60 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
             Add(cmd, "@l", Math.Clamp(limit, 1, 2000));
             Add(cmd, "@o", Math.Max(offset, 0));
 
-            var list = new List<object>();
-            
-            var deltaFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            {
-                "site", "site_name", "cell_id", "sec_id", "longitude", "latitude",
-                "tac", "pci", "rsrp", "azimuth", "height", "bw", "m_tilt", "e_tilt",
-                "maximum_transmission_power_of_resource", "real_transmit_power_of_resource", 
-                "reference_signal_power", "band", "earfcn", "tbl_project_id", "tbl_upload_id"
-            };
+            var baselineList = new List<object>();
+            var optimizedList = new List<object>();
 
             await using var r = await cmd.ExecuteReaderAsync();
-            var originalCols = new List<string>();
-            for (int i = 0; i < r.FieldCount; i++)
-            {
-                var colName = r.GetName(i);
-                if (colName.StartsWith("original_", StringComparison.OrdinalIgnoreCase) && !colName.Equals("original_id", StringComparison.OrdinalIgnoreCase))
-                {
-                    originalCols.Add(colName);
-                }
-            }
-
             while (await r.ReadAsync())
             {
-                bool hasChanges = false;
-                var changes = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-
-                foreach (var origCol in originalCols)
+                baselineList.Add(new
                 {
-                    var fieldName = origCol.Substring("original_".Length);
-                    var updCol = "updated_" + fieldName;
-                    
-                    int origOrd = r.GetOrdinal(origCol);
-                    int updOrd = r.GetOrdinal(updCol);
-                    
-                    var origVal = await r.IsDBNullAsync(origOrd) ? null : r.GetValue(origOrd);
-                    var updVal = await r.IsDBNullAsync(updOrd) ? null : r.GetValue(updOrd);
-                    
-                    bool isDifferent = false;
-                    if (origVal == null && updVal == null) isDifferent = false;
-                    else if (origVal == null || updVal == null) isDifferent = true;
-                    else if (!origVal.Equals(updVal) && origVal.ToString() != updVal.ToString()) isDifferent = true;
-
-                    if (!isDifferent)
+                    baseline = new
                     {
-                        continue;
+                        technology = await r.IsDBNullAsync(r.GetOrdinal("original_technology")) ? null : r.GetValue(r.GetOrdinal("original_technology")),
+                        band = await r.IsDBNullAsync(r.GetOrdinal("original_band")) ? null : r.GetValue(r.GetOrdinal("original_band")),
+                        bandwidth = await r.IsDBNullAsync(r.GetOrdinal("original_bw")) ? null : r.GetValue(r.GetOrdinal("original_bw")),
+                        cell_id = await r.IsDBNullAsync(r.GetOrdinal("original_cell_id")) ? null : r.GetValue(r.GetOrdinal("original_cell_id")),
+                        cluster = await r.IsDBNullAsync(r.GetOrdinal("original_cluster")) ? null : r.GetValue(r.GetOrdinal("original_cluster")),
+                        e_tilt = await r.IsDBNullAsync(r.GetOrdinal("original_e_tilt")) ? null : r.GetValue(r.GetOrdinal("original_e_tilt")),
+                        height = await r.IsDBNullAsync(r.GetOrdinal("original_height")) ? null : r.GetValue(r.GetOrdinal("original_height")),
+                        m_tilt = await r.IsDBNullAsync(r.GetOrdinal("original_m_tilt")) ? null : r.GetValue(r.GetOrdinal("original_m_tilt")),
+                        lat = await r.IsDBNullAsync(r.GetOrdinal("original_latitude")) ? null : r.GetValue(r.GetOrdinal("original_latitude")),
+                        lon = await r.IsDBNullAsync(r.GetOrdinal("original_longitude")) ? null : r.GetValue(r.GetOrdinal("original_longitude")),
+                        pci = await r.IsDBNullAsync(r.GetOrdinal("original_pci")) ? null : r.GetValue(r.GetOrdinal("original_pci")),
+                        sector = await r.IsDBNullAsync(r.GetOrdinal("original_sector")) ? null : r.GetValue(r.GetOrdinal("original_sector")),
+                        site_id = await r.IsDBNullAsync(r.GetOrdinal("original_site")) ? null : r.GetValue(r.GetOrdinal("original_site")),
+                        site_name = await r.IsDBNullAsync(r.GetOrdinal("original_site_name")) ? null : r.GetValue(r.GetOrdinal("original_site_name"))
                     }
+                });
 
-                    hasChanges = true;
-
-                    if (deltaFields.Contains(fieldName))
-                    {
-                        double? oNum = null, uNum = null;
-                        if (origVal != null && double.TryParse(origVal.ToString(), out double o)) oNum = o;
-                        if (updVal != null && double.TryParse(updVal.ToString(), out double u)) uNum = u;
-
-                        if (oNum.HasValue && uNum.HasValue)
-                        {
-                            double delta = uNum.Value - oNum.Value;
-                            changes[fieldName] = new
-                            {
-                                original = origVal,
-                                updated = updVal,
-                                delta = Math.Round(delta, 4),
-                                pct_change = oNum.Value != 0 ? (double?)Math.Round((delta / oNum.Value) * 100.0, 2) : null
-                            };
-                        }
-                        else if (!oNum.HasValue && uNum.HasValue)
-                        {
-                            changes[fieldName] = new
-                            {
-                                original = origVal,
-                                updated = updVal,
-                                delta = uNum.Value,
-                                pct_change = (double?)null
-                            };
-                        }
-                        else if (oNum.HasValue && !uNum.HasValue)
-                        {
-                            changes[fieldName] = new
-                            {
-                                original = origVal,
-                                updated = updVal,
-                                delta = -oNum.Value,
-                                pct_change = -100.0
-                            };
-                        }
-                        else
-                        {
-                            changes[fieldName] = new
-                            {
-                                original = origVal,
-                                updated = updVal,
-                                delta = (double?)null,
-                                pct_change = (double?)null
-                            };
-                        }
-                    }
-                    else
-                    {
-                        changes[fieldName] = new
-                        {
-                            original = origVal,
-                            updated = updVal
-                        };
-                    }
-                }
-
-                if (hasChanges)
+                optimizedList.Add(new
                 {
-                    list.Add(new
+                    optimized = new
                     {
-                        original_id = await r.IsDBNullAsync(r.GetOrdinal("original_id")) ? null : r.GetValue(r.GetOrdinal("original_id")),
-                        optimized_id = await r.IsDBNullAsync(r.GetOrdinal("optimized_id")) ? null : r.GetValue(r.GetOrdinal("optimized_id")),
-                        version = await r.IsDBNullAsync(r.GetOrdinal("version")) ? null : r.GetValue(r.GetOrdinal("version")),
-                        status = await r.IsDBNullAsync(r.GetOrdinal("status")) ? null : r.GetValue(r.GetOrdinal("status")),
-                        created_at = await r.IsDBNullAsync(r.GetOrdinal("created_at")) ? null : r.GetValue(r.GetOrdinal("created_at")),
-                        updated_at = await r.IsDBNullAsync(r.GetOrdinal("updated_at")) ? null : r.GetValue(r.GetOrdinal("updated_at")),
-                        updated_by = await r.IsDBNullAsync(r.GetOrdinal("updated_by")) ? null : r.GetValue(r.GetOrdinal("updated_by")),
-                        changes
-                    });
-                }
+                        technology = await r.IsDBNullAsync(r.GetOrdinal("updated_technology")) ? null : r.GetValue(r.GetOrdinal("updated_technology")),
+                        band = await r.IsDBNullAsync(r.GetOrdinal("updated_band")) ? null : r.GetValue(r.GetOrdinal("updated_band")),
+                        bandwidth = await r.IsDBNullAsync(r.GetOrdinal("updated_bw")) ? null : r.GetValue(r.GetOrdinal("updated_bw")),
+                        cell_id = await r.IsDBNullAsync(r.GetOrdinal("updated_cell_id")) ? null : r.GetValue(r.GetOrdinal("updated_cell_id")),
+                        cluster = await r.IsDBNullAsync(r.GetOrdinal("updated_cluster")) ? null : r.GetValue(r.GetOrdinal("updated_cluster")),
+                        e_tilt = await r.IsDBNullAsync(r.GetOrdinal("updated_e_tilt")) ? null : r.GetValue(r.GetOrdinal("updated_e_tilt")),
+                        height = await r.IsDBNullAsync(r.GetOrdinal("updated_height")) ? null : r.GetValue(r.GetOrdinal("updated_height")),
+                        m_tilt = await r.IsDBNullAsync(r.GetOrdinal("updated_m_tilt")) ? null : r.GetValue(r.GetOrdinal("updated_m_tilt")),
+                        lat = await r.IsDBNullAsync(r.GetOrdinal("updated_latitude")) ? null : r.GetValue(r.GetOrdinal("updated_latitude")),
+                        lon = await r.IsDBNullAsync(r.GetOrdinal("updated_longitude")) ? null : r.GetValue(r.GetOrdinal("updated_longitude")),
+                        pci = await r.IsDBNullAsync(r.GetOrdinal("updated_pci")) ? null : r.GetValue(r.GetOrdinal("updated_pci")),
+                        sector = await r.IsDBNullAsync(r.GetOrdinal("updated_sector")) ? null : r.GetValue(r.GetOrdinal("updated_sector")),
+                        site_id = await r.IsDBNullAsync(r.GetOrdinal("updated_site")) ? null : r.GetValue(r.GetOrdinal("updated_site")),
+                        site_name = await r.IsDBNullAsync(r.GetOrdinal("updated_site_name")) ? null : r.GetValue(r.GetOrdinal("updated_site_name"))
+                    }
+                });
             }
 
             return Json(new
             {
                 Status = 1,
-                Count = list.Count,
-                Data = list
+                baseline = baselineList,
+                optimized = optimizedList
             });
         }
 

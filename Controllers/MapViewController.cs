@@ -7767,7 +7767,8 @@ public async Task<IActionResult> GetLtePredictionLocationStatsRefined(
 [HttpGet, Route("GetSitePredictionBase")]
 public async Task<IActionResult> GetSitePredictionBase(
     [FromQuery] int projectId,
-    [FromQuery] string? siteId = null,
+    [FromQuery(Name = "site_id")] string? siteId = null,
+    [FromQuery(Name = "cell_id")] string? cellId = null,
     [FromQuery] int? take = null,
     [FromQuery] int skip = 0,
     [FromQuery] bool fetchAll = false)
@@ -7794,6 +7795,12 @@ public async Task<IActionResult> GetSitePredictionBase(
         {
             var trimmedSiteId = siteId.Trim();
             query = query.Where(x => x.site_id == trimmedSiteId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(cellId))
+        {
+            var trimmedCellId = cellId.Trim();
+            query = query.Where(x => x.cell_id == trimmedCellId);
         }
 
         int? total = null;
@@ -7842,6 +7849,7 @@ public async Task<IActionResult> GetSitePredictionBase(
             Table = tableName,
             ProjectId = projectId,
             SiteIdFiltered = string.IsNullOrWhiteSpace(siteId) ? "All" : siteId.Trim(),
+            CellIdFiltered = string.IsNullOrWhiteSpace(cellId) ? "All" : cellId.Trim(),
             Total = total,
             Skip = skip,
             Take = effectiveTake,

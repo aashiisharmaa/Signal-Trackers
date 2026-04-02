@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;     // for Regex
@@ -1491,6 +1491,7 @@ public class AvailablePolygonsResponse
             public DateTime? ToDate { get; set; }
             public List<int>? PolygonIds { get; set; }
             public List<int>? SessionIds { get; set; }
+            public string? GridSize { get; set; }
         }
 
         [HttpPost, Route("CreateProjectWithPolygons")]
@@ -1535,7 +1536,8 @@ public async Task<JsonResult> CreateProjectWithPolygons([FromBody] CreateProject
                     status         = 1,
                     ref_session_id = (model.SessionIds != null && model.SessionIds.Any())
                                         ? string.Join(",", model.SessionIds)
-                                        : null
+                                        : null,
+                    grid_size      = model.GridSize
                 };
 
                 db.tbl_project.Add(newProj);
@@ -6526,7 +6528,8 @@ public async Task<IActionResult> CreateSimpleProject([FromBody] CreateProjectMod
             earfcn = model.EarFcn,
             apps = model.Apps,
             from_date = model.FromDate?.ToString("yyyy-MM-dd"),
-            to_date = model.ToDate?.ToString("yyyy-MM-dd")
+            to_date = model.ToDate?.ToString("yyyy-MM-dd"),
+            grid_size = model.GridSize
         };
 
         // 4. Save to Database

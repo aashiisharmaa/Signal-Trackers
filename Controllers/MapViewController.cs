@@ -5649,6 +5649,61 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
             return filters.Count == 0 ? string.Empty : " AND " + string.Join(" AND ", filters);
         }
 
+        private static string BuildSitePredictionDualFilterClause(
+            int? site,
+            int? cellId,
+            string? cluster,
+            string? technology,
+            int? band,
+            int? pci,
+            string originalSiteExpr,
+            string updatedSiteExpr,
+            string originalCellExpr,
+            string updatedCellExpr,
+            string originalClusterExpr,
+            string updatedClusterExpr,
+            string originalTechnologyExpr,
+            string updatedTechnologyExpr,
+            string originalBandExpr,
+            string updatedBandExpr,
+            string originalPciExpr,
+            string updatedPciExpr)
+        {
+            var filters = new List<string>();
+
+            if (site.HasValue)
+            {
+                filters.Add($"(({updatedSiteExpr} = @site) OR ({originalSiteExpr} = @site))");
+            }
+
+            if (cellId.HasValue)
+            {
+                filters.Add($"(({updatedCellExpr} = @cell) OR ({originalCellExpr} = @cell))");
+            }
+
+            if (!string.IsNullOrWhiteSpace(cluster))
+            {
+                filters.Add($"(({updatedClusterExpr} = @clus) OR ({originalClusterExpr} = @clus))");
+            }
+
+            if (!string.IsNullOrWhiteSpace(technology))
+            {
+                filters.Add($"(({updatedTechnologyExpr} = @tech) OR ({originalTechnologyExpr} = @tech))");
+            }
+
+            if (band.HasValue)
+            {
+                filters.Add($"(({updatedBandExpr} = @band) OR ({originalBandExpr} = @band))");
+            }
+
+            if (pci.HasValue)
+            {
+                filters.Add($"(({updatedPciExpr} = @pci) OR ({originalPciExpr} = @pci))");
+            }
+
+            return filters.Count == 0 ? string.Empty : " AND " + string.Join(" AND ", filters);
+        }
+
         private static void AddSitePredictionFilterParameters(
             DbCommand cmd,
             int? site,
@@ -5818,19 +5873,25 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
 
             await using var cmd = conn.CreateCommand();
             var filterClause = requestedVersion == "combined"
-                ? BuildSitePredictionFilterClause(
+                ? BuildSitePredictionDualFilterClause(
                     site,
                     cell_id,
                     cluster,
                     technology,
                     band,
                     pci,
-                    "COALESCE(spo.site, sp.site)",
-                    "COALESCE(spo.cell_id, sp.cell_id)",
-                    "COALESCE(spo.cluster, sp.cluster)",
-                    "COALESCE(spo.Technology, sp.Technology)",
-                    "COALESCE(spo.band, sp.band)",
-                    "COALESCE(spo.pci, sp.pci)")
+                    "sp.site",
+                    "spo.site",
+                    "sp.cell_id",
+                    "spo.cell_id",
+                    "sp.cluster",
+                    "spo.cluster",
+                    "sp.Technology",
+                    "spo.Technology",
+                    "sp.band",
+                    "spo.band",
+                    "sp.pci",
+                    "spo.pci")
                 : BuildSitePredictionFilterClause(
                     site,
                     cell_id,
@@ -5989,24 +6050,31 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
             await EnsureSitePredictionOptimizedTableAsync(conn);
 
             await using var cmd = conn.CreateCommand();
-            var filterClause = BuildSitePredictionFilterClause(
+            var filterClause = BuildSitePredictionDualFilterClause(
                 site,
                 cell_id,
                 cluster,
                 technology,
                 band,
                 pci,
-                "COALESCE(spo.site, sp.site)",
-                "COALESCE(spo.cell_id, sp.cell_id)",
-                "COALESCE(spo.cluster, sp.cluster)",
-                "COALESCE(spo.Technology, sp.Technology)",
-                "COALESCE(spo.band, sp.band)",
-                "COALESCE(spo.pci, sp.pci)");
+                "sp.site",
+                "spo.site",
+                "sp.cell_id",
+                "spo.cell_id",
+                "sp.cluster",
+                "spo.cluster",
+                "sp.Technology",
+                "spo.Technology",
+                "sp.band",
+                "spo.band",
+                "sp.pci",
+                "spo.pci");
 
             cmd.CommandText = $@"
                 SELECT
                     sp.id AS original_id,
                     spo.id AS optimized_id,
+                    spo.site_prediction_id AS optimized_site_prediction_id,
                     spo.version,
                     spo.status,
                     spo.created_at,
@@ -6099,9 +6167,11 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                 {
                     baseline = new
                     {
+                        id = await r.IsDBNullAsync(r.GetOrdinal("original_id")) ? null : r.GetValue(r.GetOrdinal("original_id")),
                         technology = await r.IsDBNullAsync(r.GetOrdinal("original_technology")) ? null : r.GetValue(r.GetOrdinal("original_technology")),
                         band = await r.IsDBNullAsync(r.GetOrdinal("original_band")) ? null : r.GetValue(r.GetOrdinal("original_band")),
                         bandwidth = await r.IsDBNullAsync(r.GetOrdinal("original_bw")) ? null : r.GetValue(r.GetOrdinal("original_bw")),
+                        bw = await r.IsDBNullAsync(r.GetOrdinal("original_bw")) ? null : r.GetValue(r.GetOrdinal("original_bw")),
                         cell_id = await r.IsDBNullAsync(r.GetOrdinal("original_cell_id")) ? null : r.GetValue(r.GetOrdinal("original_cell_id")),
                         cluster = await r.IsDBNullAsync(r.GetOrdinal("original_cluster")) ? null : r.GetValue(r.GetOrdinal("original_cluster")),
                         azimuth = await r.IsDBNullAsync(r.GetOrdinal("original_azimuth")) ? null : r.GetValue(r.GetOrdinal("original_azimuth")),
@@ -6121,9 +6191,14 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                 {
                     optimized = new
                     {
+                        original_id = await r.IsDBNullAsync(r.GetOrdinal("original_id")) ? null : r.GetValue(r.GetOrdinal("original_id")),
+                        id = await r.IsDBNullAsync(r.GetOrdinal("original_id")) ? null : r.GetValue(r.GetOrdinal("original_id")),
+                        optimized_id = await r.IsDBNullAsync(r.GetOrdinal("optimized_id")) ? null : r.GetValue(r.GetOrdinal("optimized_id")),
+                        site_prediction_id = await r.IsDBNullAsync(r.GetOrdinal("optimized_site_prediction_id")) ? null : r.GetValue(r.GetOrdinal("optimized_site_prediction_id")),
                         technology = await r.IsDBNullAsync(r.GetOrdinal("updated_technology")) ? null : r.GetValue(r.GetOrdinal("updated_technology")),
                         band = await r.IsDBNullAsync(r.GetOrdinal("updated_band")) ? null : r.GetValue(r.GetOrdinal("updated_band")),
                         bandwidth = await r.IsDBNullAsync(r.GetOrdinal("updated_bw")) ? null : r.GetValue(r.GetOrdinal("updated_bw")),
+                        bw = await r.IsDBNullAsync(r.GetOrdinal("updated_bw")) ? null : r.GetValue(r.GetOrdinal("updated_bw")),
                         cell_id = await r.IsDBNullAsync(r.GetOrdinal("updated_cell_id")) ? null : r.GetValue(r.GetOrdinal("updated_cell_id")),
                         cluster = await r.IsDBNullAsync(r.GetOrdinal("updated_cluster")) ? null : r.GetValue(r.GetOrdinal("updated_cluster")),
                         azimuth = await r.IsDBNullAsync(r.GetOrdinal("updated_azimuth")) ? null : r.GetValue(r.GetOrdinal("updated_azimuth")),
@@ -6227,10 +6302,44 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
 
                 foreach (var item in items)
                 {
-                    if (!item.TryGetValue("id", StringComparison.OrdinalIgnoreCase, out var idToken) || !long.TryParse(idToken.ToString(), out long id))
+                    if (!item.TryGetValue("id", StringComparison.OrdinalIgnoreCase, out var idToken) || !long.TryParse(idToken.ToString(), out long lookupId))
                         continue;
-                    currentItemId = id;
-                    requestedIds.Add(id);
+
+                    currentItemId = lookupId;
+                    requestedIds.Add(lookupId);
+
+                    long? explicitSourceId = null;
+                    if (item.TryGetValue("source_id", StringComparison.OrdinalIgnoreCase, out var sourceIdToken) &&
+                        long.TryParse(sourceIdToken.ToString(), out var parsedSourceId))
+                    {
+                        explicitSourceId = parsedSourceId;
+                    }
+
+                    long? explicitSiteId = null;
+                    if (item.TryGetValue("site_id_selector", StringComparison.OrdinalIgnoreCase, out var siteIdToken) &&
+                        long.TryParse(siteIdToken.ToString(), out var parsedSiteId))
+                    {
+                        explicitSiteId = parsedSiteId;
+                    }
+
+                    long? sourceId = explicitSourceId;
+                    long? siteId = explicitSiteId;
+
+                    if (!sourceId.HasValue && !siteId.HasValue)
+                    {
+                        // Backward-compatible resolution:
+                        // 1) if id exists as site_prediction.id -> treat as source row id
+                        // 2) else treat id as site id
+                        await using var existsCmd = conn.CreateCommand();
+                        existsCmd.Transaction = tx;
+                        existsCmd.CommandText = "SELECT COUNT(*) FROM site_prediction WHERE id = @id;";
+                        Add(existsCmd, "@id", lookupId);
+                        var existsObj = await existsCmd.ExecuteScalarAsync();
+                        var rowExists = existsObj != null && existsObj != DBNull.Value && Convert.ToInt32(existsObj) > 0;
+
+                        if (rowExists) sourceId = lookupId;
+                        else siteId = lookupId;
+                    }
 
                     var updates = new List<string>();
                     var parameters = new Dictionary<string, object?>();
@@ -6240,22 +6349,29 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                     {
                         var key = prop.Name;
                         if (key.Equals("id", StringComparison.OrdinalIgnoreCase)) continue;
+                        if (key.Equals("source_id", StringComparison.OrdinalIgnoreCase)) continue;
+                        if (key.Equals("site_id_selector", StringComparison.OrdinalIgnoreCase)) continue;
 
                         if (SitePredictionColumnMap.TryGetValue(key, out var dbColumn))
                         {
                             if (!seenDbColumns.Add(dbColumn)) continue;
-                            string paramName = "@" + key + "_" + id;
-                            updates.Add($"`{dbColumn}` = {paramName}");
+                            string paramName = "@" + key + "_" + lookupId;
+                            updates.Add($"spo.`{dbColumn}` = {paramName}");
                             parameters[paramName] = NormalizeSitePredictionValue(prop.Value);
                         }
                     }
 
-                    if (updates.Count > 0)
+                    if (updates.Count == 0)
                     {
-                        await using (var seedCmd = conn.CreateCommand())
-                        {
-                            seedCmd.Transaction = tx;
-                            seedCmd.CommandText = $@"
+                        skippedIds.Add(lookupId);
+                        continue;
+                    }
+
+                    await using (var seedCmd = conn.CreateCommand())
+                    {
+                        seedCmd.Transaction = tx;
+                        seedCmd.CommandText = sourceId.HasValue
+                            ? $@"
                                 INSERT INTO site_prediction_optimized (
                                     site_prediction_id,
                                     {insertColumnList},
@@ -6280,42 +6396,80 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                                   AND NOT EXISTS (
                                       SELECT 1
                                       FROM site_prediction_optimized spo
-                                      WHERE spo.site_prediction_id = @sourceId
+                                      WHERE spo.site_prediction_id = sp.id
+                                  );"
+                            : $@"
+                                INSERT INTO site_prediction_optimized (
+                                    site_prediction_id,
+                                    {insertColumnList},
+                                    is_updated,
+                                    version,
+                                    status,
+                                    created_at,
+                                    updated_at,
+                                    updated_by
+                                )
+                                SELECT
+                                    sp.id,
+                                    {selectColumnList},
+                                    1,
+                                    0,
+                                    'updated',
+                                    UTC_TIMESTAMP(),
+                                    UTC_TIMESTAMP(),
+                                    @updatedBy
+                                FROM site_prediction sp
+                                WHERE sp.site = @targetSite
+                                  AND NOT EXISTS (
+                                      SELECT 1
+                                      FROM site_prediction_optimized spo
+                                      WHERE spo.site_prediction_id = sp.id
                                   );";
-                            Add(seedCmd, "@sourceId", id);
-                            Add(seedCmd, "@updatedBy", updatedBy);
-                            await seedCmd.ExecuteNonQueryAsync();
-                        }
 
-                        var sql = $@"
-                            UPDATE site_prediction_optimized
+                        Add(seedCmd, "@updatedBy", updatedBy);
+                        if (sourceId.HasValue) Add(seedCmd, "@sourceId", sourceId.Value);
+                        else Add(seedCmd, "@targetSite", siteId!.Value);
+                        await seedCmd.ExecuteNonQueryAsync();
+                    }
+
+                    var sql = sourceId.HasValue
+                        ? $@"
+                            UPDATE site_prediction_optimized spo
                             SET {string.Join(", ", updates)},
-                                is_updated = 1,
-                                status = 'updated',
-                                version = COALESCE(version, 0) + 1,
-                                updated_at = UTC_TIMESTAMP(),
-                                updated_by = @updatedBy_{id}
-                            WHERE site_prediction_id = @id_{id}";
-                        await using var cmd = conn.CreateCommand();
-                        cmd.Transaction = tx;
-                        cmd.CommandText = sql;
-                        Add(cmd, $"@id_{id}", id);
-                        Add(cmd, $"@updatedBy_{id}", updatedBy);
-                        
-                        foreach (var kvp in parameters)
-                        {
-                            Add(cmd, kvp.Key, kvp.Value ?? DBNull.Value);
-                        }
+                                spo.is_updated = 1,
+                                spo.status = 'updated',
+                                spo.version = COALESCE(spo.version, 0) + 1,
+                                spo.updated_at = UTC_TIMESTAMP(),
+                                spo.updated_by = @updatedBy_{lookupId}
+                            WHERE spo.site_prediction_id = @sourceId_{lookupId};"
+                        : $@"
+                            UPDATE site_prediction_optimized spo
+                            LEFT JOIN site_prediction sp ON sp.id = spo.site_prediction_id
+                            SET {string.Join(", ", updates)},
+                                spo.is_updated = 1,
+                                spo.status = 'updated',
+                                spo.version = COALESCE(spo.version, 0) + 1,
+                                spo.updated_at = UTC_TIMESTAMP(),
+                                spo.updated_by = @updatedBy_{lookupId}
+                            WHERE spo.site = @targetSite_{lookupId}
+                               OR sp.site = @targetSite_{lookupId};";
 
-                        int rows = await cmd.ExecuteNonQueryAsync();
-                        totalUpdated += rows;
-                        if (rows > 0) updatedIds.Add(id);
-                        else skippedIds.Add(id);
-                    }
-                    else
+                    await using var cmd = conn.CreateCommand();
+                    cmd.Transaction = tx;
+                    cmd.CommandText = sql;
+                    Add(cmd, $"@updatedBy_{lookupId}", updatedBy);
+                    if (sourceId.HasValue) Add(cmd, $"@sourceId_{lookupId}", sourceId.Value);
+                    else Add(cmd, $"@targetSite_{lookupId}", siteId!.Value);
+
+                    foreach (var kvp in parameters)
                     {
-                        skippedIds.Add(id);
+                        Add(cmd, kvp.Key, kvp.Value ?? DBNull.Value);
                     }
+
+                    int rows = await cmd.ExecuteNonQueryAsync();
+                    totalUpdated += rows;
+                    if (rows > 0) updatedIds.Add(lookupId);
+                    else skippedIds.Add(lookupId);
                 }
 
                 await tx.CommitAsync();

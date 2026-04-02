@@ -7766,19 +7766,16 @@ public async Task<IActionResult> GetLtePredictionLocationStatsRefined(
 
 [HttpGet, Route("GetSitePredictionBase")]
 public async Task<IActionResult> GetSitePredictionBase(
-    [FromQuery] int projectId,
-    [FromQuery(Name = "site_id")] string? siteId = null,
     [FromQuery(Name = "cell_id")] string? cellId = null,
     [FromQuery] int? take = null,
     [FromQuery] int skip = 0,
     [FromQuery] bool fetchAll = false)
 {
-    if (projectId <= 0)
-        return BadRequest(new { Status = 0, Message = "A valid projectId is required." });
-
     if (skip < 0) skip = 0;
     if (take.HasValue && take.Value <= 0)
         return BadRequest(new { Status = 0, Message = "take must be greater than 0." });
+    if (string.IsNullOrWhiteSpace(cellId))
+        return BadRequest(new { Status = 0, Message = "cell_id is required." });
 
     try
     {
@@ -7787,21 +7784,10 @@ public async Task<IActionResult> GetSitePredictionBase(
         if (effectiveTake.HasValue && effectiveTake.Value > 20000)
             effectiveTake = 20000;
 
+        var trimmedCellId = cellId.Trim();
         var query = db.site_prediction_base
             .AsNoTracking()
-            .Where(x => x.project_id == projectId);
-
-        if (!string.IsNullOrWhiteSpace(siteId))
-        {
-            var trimmedSiteId = siteId.Trim();
-            query = query.Where(x => x.site_id == trimmedSiteId);
-        }
-
-        if (!string.IsNullOrWhiteSpace(cellId))
-        {
-            var trimmedCellId = cellId.Trim();
-            query = query.Where(x => x.cell_id == trimmedCellId);
-        }
+            .Where(x => x.cell_id == trimmedCellId);
 
         int? total = null;
         if (effectiveTake.HasValue || skip > 0)
@@ -7847,9 +7833,7 @@ public async Task<IActionResult> GetSitePredictionBase(
         {
             Status = 1,
             Table = tableName,
-            ProjectId = projectId,
-            SiteIdFiltered = string.IsNullOrWhiteSpace(siteId) ? "All" : siteId.Trim(),
-            CellIdFiltered = string.IsNullOrWhiteSpace(cellId) ? "All" : cellId.Trim(),
+            CellIdFiltered = trimmedCellId,
             Total = total,
             Skip = skip,
             Take = effectiveTake,
@@ -7866,19 +7850,16 @@ public async Task<IActionResult> GetSitePredictionBase(
 
 [HttpGet, Route("GetSitePredictionOptimised")]
 public async Task<IActionResult> GetSitePredictionOptimised(
-    [FromQuery] int projectId,
-    [FromQuery(Name = "site_id")] string? siteId = null,
     [FromQuery(Name = "cell_id")] string? cellId = null,
     [FromQuery] int? take = null,
     [FromQuery] int skip = 0,
     [FromQuery] bool fetchAll = false)
 {
-    if (projectId <= 0)
-        return BadRequest(new { Status = 0, Message = "A valid projectId is required." });
-
     if (skip < 0) skip = 0;
     if (take.HasValue && take.Value <= 0)
         return BadRequest(new { Status = 0, Message = "take must be greater than 0." });
+    if (string.IsNullOrWhiteSpace(cellId))
+        return BadRequest(new { Status = 0, Message = "cell_id is required." });
 
     try
     {
@@ -7887,21 +7868,10 @@ public async Task<IActionResult> GetSitePredictionOptimised(
         if (effectiveTake.HasValue && effectiveTake.Value > 20000)
             effectiveTake = 20000;
 
+        var trimmedCellId = cellId.Trim();
         var query = db.lte_prediction_optimised_results
             .AsNoTracking()
-            .Where(x => x.project_id == projectId);
-
-        if (!string.IsNullOrWhiteSpace(siteId))
-        {
-            var trimmedSiteId = siteId.Trim();
-            query = query.Where(x => x.site_id == trimmedSiteId);
-        }
-
-        if (!string.IsNullOrWhiteSpace(cellId))
-        {
-            var trimmedCellId = cellId.Trim();
-            query = query.Where(x => x.cell_id == trimmedCellId);
-        }
+            .Where(x => x.cell_id == trimmedCellId);
 
         int? total = null;
         if (effectiveTake.HasValue || skip > 0)
@@ -7947,9 +7917,7 @@ public async Task<IActionResult> GetSitePredictionOptimised(
         {
             Status = 1,
             Table = tableName,
-            ProjectId = projectId,
-            SiteIdFiltered = string.IsNullOrWhiteSpace(siteId) ? "All" : siteId.Trim(),
-            CellIdFiltered = string.IsNullOrWhiteSpace(cellId) ? "All" : cellId.Trim(),
+            CellIdFiltered = trimmedCellId,
             Total = total,
             Skip = skip,
             Take = effectiveTake,

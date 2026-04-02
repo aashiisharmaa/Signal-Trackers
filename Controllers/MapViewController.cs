@@ -5945,16 +5945,38 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                     COALESCE(spo.tbl_upload_id, sp.tbl_upload_id) AS tbl_upload_id,
                     CONVERT(COALESCE(spo.Technology, sp.Technology) USING utf8mb4) COLLATE utf8mb4_unicode_ci AS Technology
                 FROM site_prediction sp
-                LEFT JOIN (
-                    SELECT o.*
-                    FROM site_prediction_optimized o
-                    INNER JOIN (
-                        SELECT site_prediction_id, MAX(id) AS max_id
-                        FROM site_prediction_optimized
-                        WHERE site_prediction_id IS NOT NULL
-                        GROUP BY site_prediction_id
-                    ) latest ON latest.max_id = o.id
-                ) spo ON spo.site_prediction_id = sp.id
+                LEFT JOIN site_prediction_optimized spo
+                    ON spo.id = (
+                        SELECT o.id
+                        FROM site_prediction_optimized o
+                        WHERE o.tbl_project_id = sp.tbl_project_id
+                          AND (
+                            o.site_prediction_id = sp.id
+                            OR (
+                                (o.site_prediction_id IS NULL OR o.site_prediction_id = 0 OR o.site_prediction_id = o.tbl_project_id)
+                                AND (
+                                    (o.cell_id IS NOT NULL AND sp.cell_id IS NOT NULL AND o.cell_id = sp.cell_id)
+                                    OR (
+                                        o.site IS NOT NULL
+                                        AND sp.site IS NOT NULL
+                                        AND o.site = sp.site
+                                        AND (
+                                            o.sector IS NULL
+                                            OR sp.sector IS NULL
+                                            OR (
+                                                CONVERT(o.sector USING utf8mb4) COLLATE utf8mb4_unicode_ci =
+                                                CONVERT(sp.sector USING utf8mb4) COLLATE utf8mb4_unicode_ci
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                          )
+                        ORDER BY
+                            CASE WHEN o.site_prediction_id = sp.id THEN 0 ELSE 1 END,
+                            o.id DESC
+                        LIMIT 1
+                    )
                 WHERE sp.tbl_project_id = @pid
                 {filterClause}
                 ORDER BY sp.id DESC
@@ -6048,6 +6070,32 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                 await conn.OpenAsync();
 
             await EnsureSitePredictionOptimizedTableAsync(conn);
+            var sourceColumns = await GetTableColumnSetAsync(conn, "site_prediction");
+            var optimizedColumns = await GetTableColumnSetAsync(conn, "site_prediction_optimized");
+            var optimizedOnlyColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "site_prediction_id",
+                "is_updated",
+                "version",
+                "status",
+                "created_at",
+                "updated_at",
+                "updated_by"
+            };
+            var commonColumns = sourceColumns
+                .Where(col => optimizedColumns.Contains(col) && !optimizedOnlyColumns.Contains(col))
+                .OrderBy(col => col.Equals("id", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+                .ThenBy(col => col, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (commonColumns.Count == 0)
+            {
+                return StatusCode(500, new
+                {
+                    Status = 0,
+                    Message = "No common columns found between site_prediction and site_prediction_optimized."
+                });
+            }
 
             await using var cmd = conn.CreateCommand();
             var filterClause = BuildSitePredictionDualFilterClause(
@@ -6069,84 +6117,50 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                 "spo.band",
                 "sp.pci",
                 "spo.pci");
+            var compareSelectColumns = string.Join(
+                ",\n                    ",
+                commonColumns.SelectMany(col => new[]
+                {
+                    $"sp.`{col}` AS `original_{col}`",
+                    $"spo.`{col}` AS `updated_{col}`"
+                }));
 
             cmd.CommandText = $@"
                 SELECT
-                    sp.id AS original_id,
-                    spo.id AS optimized_id,
-                    spo.site_prediction_id AS optimized_site_prediction_id,
-                    spo.version,
-                    spo.status,
-                    spo.created_at,
-                    spo.updated_at,
-                    spo.updated_by,
-                    sp.site AS original_site,
-                    spo.site AS updated_site,
-                    sp.site_name AS original_site_name,
-                    spo.site_name AS updated_site_name,
-                    sp.sector AS original_sector,
-                    spo.sector AS updated_sector,
-                    sp.cell_id AS original_cell_id,
-                    spo.cell_id AS updated_cell_id,
-                    sp.sec_id AS original_sec_id,
-                    spo.sec_id AS updated_sec_id,
-                    sp.longitude AS original_longitude,
-                    spo.longitude AS updated_longitude,
-                    sp.latitude AS original_latitude,
-                    spo.latitude AS updated_latitude,
-                    sp.tac AS original_tac,
-                    spo.tac AS updated_tac,
-                    sp.pci AS original_pci,
-                    spo.pci AS updated_pci,
-                    sp.RSRP AS original_rsrp,
-                    spo.RSRP AS updated_rsrp,
-                    sp.azimuth AS original_azimuth,
-                    spo.azimuth AS updated_azimuth,
-                    sp.height AS original_height,
-                    spo.height AS updated_height,
-                    sp.bw AS original_bw,
-                    spo.bw AS updated_bw,
-                    sp.m_tilt AS original_m_tilt,
-                    spo.m_tilt AS updated_m_tilt,
-                    sp.e_tilt AS original_e_tilt,
-                    spo.e_tilt AS updated_e_tilt,
-                    sp.maximum_transmission_power_of_resource AS original_maximum_transmission_power_of_resource,
-                    spo.maximum_transmission_power_of_resource AS updated_maximum_transmission_power_of_resource,
-                    sp.real_transmit_power_of_resource AS original_real_transmit_power_of_resource,
-                    spo.real_transmit_power_of_resource AS updated_real_transmit_power_of_resource,
-                    sp.reference_signal_power AS original_reference_signal_power,
-                    spo.reference_signal_power AS updated_reference_signal_power,
-                    sp.cellsize AS original_cellsize,
-                    spo.cellsize AS updated_cellsize,
-                    sp.frequency AS original_frequency,
-                    spo.frequency AS updated_frequency,
-                    sp.band AS original_band,
-                    spo.band AS updated_band,
-                    sp.uplink_center_frequency AS original_uplink_center_frequency,
-                    spo.uplink_center_frequency AS updated_uplink_center_frequency,
-                    sp.downlink_frequency AS original_downlink_frequency,
-                    spo.downlink_frequency AS updated_downlink_frequency,
-                    sp.earfcn AS original_earfcn,
-                    spo.earfcn AS updated_earfcn,
-                    sp.cluster AS original_cluster,
-                    spo.cluster AS updated_cluster,
-                    sp.tbl_project_id AS original_tbl_project_id,
-                    spo.tbl_project_id AS updated_tbl_project_id,
-                    sp.tbl_upload_id AS original_tbl_upload_id,
-                    spo.tbl_upload_id AS updated_tbl_upload_id,
-                    sp.Technology AS original_technology,
-                    spo.Technology AS updated_technology
+                    {compareSelectColumns}
                 FROM site_prediction sp
-                INNER JOIN (
-                    SELECT o.*
-                    FROM site_prediction_optimized o
-                    INNER JOIN (
-                        SELECT site_prediction_id, MAX(id) AS max_id
-                        FROM site_prediction_optimized
-                        WHERE site_prediction_id IS NOT NULL
-                        GROUP BY site_prediction_id
-                    ) latest ON latest.max_id = o.id
-                ) spo ON spo.site_prediction_id = sp.id
+                INNER JOIN site_prediction_optimized spo
+                    ON spo.id = (
+                        SELECT o.id
+                        FROM site_prediction_optimized o
+                        WHERE o.tbl_project_id = sp.tbl_project_id
+                          AND (
+                            o.site_prediction_id = sp.id
+                            OR (
+                                (o.site_prediction_id IS NULL OR o.site_prediction_id = 0 OR o.site_prediction_id = o.tbl_project_id)
+                                AND (
+                                    (o.cell_id IS NOT NULL AND sp.cell_id IS NOT NULL AND o.cell_id = sp.cell_id)
+                                    OR (
+                                        o.site IS NOT NULL
+                                        AND sp.site IS NOT NULL
+                                        AND o.site = sp.site
+                                        AND (
+                                            o.sector IS NULL
+                                            OR sp.sector IS NULL
+                                            OR (
+                                                CONVERT(o.sector USING utf8mb4) COLLATE utf8mb4_unicode_ci =
+                                                CONVERT(sp.sector USING utf8mb4) COLLATE utf8mb4_unicode_ci
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                          )
+                        ORDER BY
+                            CASE WHEN o.site_prediction_id = sp.id THEN 0 ELSE 1 END,
+                            o.id DESC
+                        LIMIT 1
+                    )
                 WHERE sp.tbl_project_id = @pid
                 {filterClause}
                 ORDER BY sp.id DESC
@@ -6161,57 +6175,36 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
             var optimizedList = new List<object>();
 
             await using var r = await cmd.ExecuteReaderAsync();
+            var baselineOrdinals = commonColumns.ToDictionary(
+                col => col,
+                col => r.GetOrdinal($"original_{col}"),
+                StringComparer.OrdinalIgnoreCase);
+            var optimizedOrdinals = commonColumns.ToDictionary(
+                col => col,
+                col => r.GetOrdinal($"updated_{col}"),
+                StringComparer.OrdinalIgnoreCase);
+
             while (await r.ReadAsync())
             {
+                var baselineRow = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+                var optimizedRow = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var col in commonColumns)
+                {
+                    var baselineOrdinal = baselineOrdinals[col];
+                    var optimizedOrdinal = optimizedOrdinals[col];
+                    baselineRow[col] = await r.IsDBNullAsync(baselineOrdinal) ? null : r.GetValue(baselineOrdinal);
+                    optimizedRow[col] = await r.IsDBNullAsync(optimizedOrdinal) ? null : r.GetValue(optimizedOrdinal);
+                }
+
                 baselineList.Add(new
                 {
-                    baseline = new
-                    {
-                        id = await r.IsDBNullAsync(r.GetOrdinal("original_id")) ? null : r.GetValue(r.GetOrdinal("original_id")),
-                        technology = await r.IsDBNullAsync(r.GetOrdinal("original_technology")) ? null : r.GetValue(r.GetOrdinal("original_technology")),
-                        band = await r.IsDBNullAsync(r.GetOrdinal("original_band")) ? null : r.GetValue(r.GetOrdinal("original_band")),
-                        bandwidth = await r.IsDBNullAsync(r.GetOrdinal("original_bw")) ? null : r.GetValue(r.GetOrdinal("original_bw")),
-                        bw = await r.IsDBNullAsync(r.GetOrdinal("original_bw")) ? null : r.GetValue(r.GetOrdinal("original_bw")),
-                        cell_id = await r.IsDBNullAsync(r.GetOrdinal("original_cell_id")) ? null : r.GetValue(r.GetOrdinal("original_cell_id")),
-                        cluster = await r.IsDBNullAsync(r.GetOrdinal("original_cluster")) ? null : r.GetValue(r.GetOrdinal("original_cluster")),
-                        azimuth = await r.IsDBNullAsync(r.GetOrdinal("original_azimuth")) ? null : r.GetValue(r.GetOrdinal("original_azimuth")),
-                        e_tilt = await r.IsDBNullAsync(r.GetOrdinal("original_e_tilt")) ? null : r.GetValue(r.GetOrdinal("original_e_tilt")),
-                        height = await r.IsDBNullAsync(r.GetOrdinal("original_height")) ? null : r.GetValue(r.GetOrdinal("original_height")),
-                        m_tilt = await r.IsDBNullAsync(r.GetOrdinal("original_m_tilt")) ? null : r.GetValue(r.GetOrdinal("original_m_tilt")),
-                        lat = await r.IsDBNullAsync(r.GetOrdinal("original_latitude")) ? null : r.GetValue(r.GetOrdinal("original_latitude")),
-                        lon = await r.IsDBNullAsync(r.GetOrdinal("original_longitude")) ? null : r.GetValue(r.GetOrdinal("original_longitude")),
-                        pci = await r.IsDBNullAsync(r.GetOrdinal("original_pci")) ? null : r.GetValue(r.GetOrdinal("original_pci")),
-                        sector = await r.IsDBNullAsync(r.GetOrdinal("original_sector")) ? null : r.GetValue(r.GetOrdinal("original_sector")),
-                        site_id = await r.IsDBNullAsync(r.GetOrdinal("original_site")) ? null : r.GetValue(r.GetOrdinal("original_site")),
-                        site_name = await r.IsDBNullAsync(r.GetOrdinal("original_site_name")) ? null : r.GetValue(r.GetOrdinal("original_site_name"))
-                    }
+                    baseline = baselineRow
                 });
 
                 optimizedList.Add(new
                 {
-                    optimized = new
-                    {
-                        original_id = await r.IsDBNullAsync(r.GetOrdinal("original_id")) ? null : r.GetValue(r.GetOrdinal("original_id")),
-                        id = await r.IsDBNullAsync(r.GetOrdinal("original_id")) ? null : r.GetValue(r.GetOrdinal("original_id")),
-                        optimized_id = await r.IsDBNullAsync(r.GetOrdinal("optimized_id")) ? null : r.GetValue(r.GetOrdinal("optimized_id")),
-                        site_prediction_id = await r.IsDBNullAsync(r.GetOrdinal("optimized_site_prediction_id")) ? null : r.GetValue(r.GetOrdinal("optimized_site_prediction_id")),
-                        technology = await r.IsDBNullAsync(r.GetOrdinal("updated_technology")) ? null : r.GetValue(r.GetOrdinal("updated_technology")),
-                        band = await r.IsDBNullAsync(r.GetOrdinal("updated_band")) ? null : r.GetValue(r.GetOrdinal("updated_band")),
-                        bandwidth = await r.IsDBNullAsync(r.GetOrdinal("updated_bw")) ? null : r.GetValue(r.GetOrdinal("updated_bw")),
-                        bw = await r.IsDBNullAsync(r.GetOrdinal("updated_bw")) ? null : r.GetValue(r.GetOrdinal("updated_bw")),
-                        cell_id = await r.IsDBNullAsync(r.GetOrdinal("updated_cell_id")) ? null : r.GetValue(r.GetOrdinal("updated_cell_id")),
-                        cluster = await r.IsDBNullAsync(r.GetOrdinal("updated_cluster")) ? null : r.GetValue(r.GetOrdinal("updated_cluster")),
-                        azimuth = await r.IsDBNullAsync(r.GetOrdinal("updated_azimuth")) ? null : r.GetValue(r.GetOrdinal("updated_azimuth")),
-                        e_tilt = await r.IsDBNullAsync(r.GetOrdinal("updated_e_tilt")) ? null : r.GetValue(r.GetOrdinal("updated_e_tilt")),
-                        height = await r.IsDBNullAsync(r.GetOrdinal("updated_height")) ? null : r.GetValue(r.GetOrdinal("updated_height")),
-                        m_tilt = await r.IsDBNullAsync(r.GetOrdinal("updated_m_tilt")) ? null : r.GetValue(r.GetOrdinal("updated_m_tilt")),
-                        lat = await r.IsDBNullAsync(r.GetOrdinal("updated_latitude")) ? null : r.GetValue(r.GetOrdinal("updated_latitude")),
-                        lon = await r.IsDBNullAsync(r.GetOrdinal("updated_longitude")) ? null : r.GetValue(r.GetOrdinal("updated_longitude")),
-                        pci = await r.IsDBNullAsync(r.GetOrdinal("updated_pci")) ? null : r.GetValue(r.GetOrdinal("updated_pci")),
-                        sector = await r.IsDBNullAsync(r.GetOrdinal("updated_sector")) ? null : r.GetValue(r.GetOrdinal("updated_sector")),
-                        site_id = await r.IsDBNullAsync(r.GetOrdinal("updated_site")) ? null : r.GetValue(r.GetOrdinal("updated_site")),
-                        site_name = await r.IsDBNullAsync(r.GetOrdinal("updated_site_name")) ? null : r.GetValue(r.GetOrdinal("updated_site_name"))
-                    }
+                    optimized = optimizedRow
                 });
             }
 

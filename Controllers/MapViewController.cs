@@ -7864,6 +7864,106 @@ public async Task<IActionResult> GetSitePredictionBase(
     }
 }
 
+[HttpGet, Route("GetSitePredictionOptimised")]
+public async Task<IActionResult> GetSitePredictionOptimised(
+    [FromQuery] int projectId,
+    [FromQuery(Name = "site_id")] string? siteId = null,
+    [FromQuery(Name = "cell_id")] string? cellId = null,
+    [FromQuery] int? take = null,
+    [FromQuery] int skip = 0,
+    [FromQuery] bool fetchAll = false)
+{
+    if (projectId <= 0)
+        return BadRequest(new { Status = 0, Message = "A valid projectId is required." });
+
+    if (skip < 0) skip = 0;
+    if (take.HasValue && take.Value <= 0)
+        return BadRequest(new { Status = 0, Message = "take must be greater than 0." });
+
+    try
+    {
+        const string tableName = "lte_prediction_optimised_results";
+        int? effectiveTake = fetchAll ? (int?)null : (take ?? 20000);
+        if (effectiveTake.HasValue && effectiveTake.Value > 20000)
+            effectiveTake = 20000;
+
+        var query = db.lte_prediction_optimised_results
+            .AsNoTracking()
+            .Where(x => x.project_id == projectId);
+
+        if (!string.IsNullOrWhiteSpace(siteId))
+        {
+            var trimmedSiteId = siteId.Trim();
+            query = query.Where(x => x.site_id == trimmedSiteId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(cellId))
+        {
+            var trimmedCellId = cellId.Trim();
+            query = query.Where(x => x.cell_id == trimmedCellId);
+        }
+
+        int? total = null;
+        if (effectiveTake.HasValue || skip > 0)
+        {
+            total = await query.CountAsync();
+        }
+
+        query = query.OrderByDescending(x => x.id);
+
+        if (skip > 0)
+        {
+            query = query.Skip(skip);
+        }
+
+        if (effectiveTake.HasValue)
+        {
+            query = query.Take(effectiveTake.Value);
+        }
+
+        var items = await query
+            .Select(x => new
+            {
+                x.id,
+                x.project_id,
+                x.job_id,
+                x.site_id,
+                x.lat,
+                x.lon,
+                x.pred_rsrp,
+                x.pred_rsrq,
+                x.pred_sinr,
+                x.node_b_id,
+                x.cell_id,
+                operator_name = x.Operator,
+                x.created_at,
+                x.nodeb_id_cell_id
+            })
+            .ToListAsync();
+
+        total ??= skip == 0 ? items.Count : 0;
+
+        return Ok(new
+        {
+            Status = 1,
+            Table = tableName,
+            ProjectId = projectId,
+            SiteIdFiltered = string.IsNullOrWhiteSpace(siteId) ? "All" : siteId.Trim(),
+            CellIdFiltered = string.IsNullOrWhiteSpace(cellId) ? "All" : cellId.Trim(),
+            Total = total,
+            Skip = skip,
+            Take = effectiveTake,
+            FetchAll = fetchAll,
+            Count = items.Count,
+            Data = items
+        });
+    }
+    catch (Exception ex)
+    {
+        return StatusCode(500, new { Status = 0, Message = "Error fetching site prediction optimised data: " + ex.Message });
+    }
+}
+
 // Keep this helper method right below the API!
 private double CalculateSingleStat(List<double> values, string statType)
 {

@@ -44,6 +44,7 @@ protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
        public DbSet<tbl_lte_prediction_results> Tbl_lte_prediction_results { get; set; }
        public DbSet<tbl_lte_prediction_results_refined> tbl_lte_prediction_results_refined { get; set; }
        public DbSet<site_prediction_base> site_prediction_base { get; set; }
+       public DbSet<lte_prediction_optimised_results> lte_prediction_optimised_results { get; set; }
 
 
 
@@ -201,6 +202,12 @@ protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             {
                 e.HasKey(x => x.id);
                 e.ToTable("lte_prediction_baseline_results");
+            });
+
+            modelBuilder.Entity<lte_prediction_optimised_results>(e =>
+            {
+                e.HasKey(x => x.id);
+                e.ToTable("lte_prediction_optimised_results");
             });
 
             modelBuilder.Entity<tbl_project>(e =>

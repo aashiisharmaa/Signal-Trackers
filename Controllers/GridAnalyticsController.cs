@@ -88,22 +88,70 @@ namespace SignalTracker.Controllers
 
                             baseline_avg_rsrp DOUBLE, baseline_avg_rsrq DOUBLE, baseline_avg_sinr DOUBLE,
                             baseline_median_rsrp DOUBLE, baseline_median_rsrq DOUBLE, baseline_median_sinr DOUBLE,
+                            baseline_min_rsrp DOUBLE, baseline_min_rsrq DOUBLE, baseline_min_sinr DOUBLE,
                             baseline_max_rsrp DOUBLE, baseline_max_rsrq DOUBLE, baseline_max_sinr DOUBLE,
                             baseline_mode_rsrp DOUBLE, baseline_mode_rsrq DOUBLE, baseline_mode_sinr DOUBLE,
 
                             optimized_avg_rsrp DOUBLE, optimized_avg_rsrq DOUBLE, optimized_avg_sinr DOUBLE,
                             optimized_median_rsrp DOUBLE, optimized_median_rsrq DOUBLE, optimized_median_sinr DOUBLE,
+                            optimized_min_rsrp DOUBLE, optimized_min_rsrq DOUBLE, optimized_min_sinr DOUBLE,
                             optimized_max_rsrp DOUBLE, optimized_max_rsrq DOUBLE, optimized_max_sinr DOUBLE,
                             optimized_mode_rsrp DOUBLE, optimized_mode_rsrq DOUBLE, optimized_mode_sinr DOUBLE,
 
                             diff_avg_rsrp DOUBLE, diff_avg_rsrq DOUBLE, diff_avg_sinr DOUBLE,
                             diff_median_rsrp DOUBLE, diff_median_rsrq DOUBLE, diff_median_sinr DOUBLE,
+                            diff_min_rsrp DOUBLE, diff_min_rsrq DOUBLE, diff_min_sinr DOUBLE,
                             diff_max_rsrp DOUBLE, diff_max_rsrq DOUBLE, diff_max_sinr DOUBLE,
                             diff_mode_rsrp DOUBLE, diff_mode_rsrq DOUBLE, diff_mode_sinr DOUBLE,
 
                             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                         );";
                         await cmdCreate.ExecuteNonQueryAsync();
+                    }
+
+                    // Ensure newly introduced min/diff_min columns exist for older deployments.
+                    var requiredColumns = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["baseline_min_rsrp"] = "DOUBLE",
+                        ["baseline_min_rsrq"] = "DOUBLE",
+                        ["baseline_min_sinr"] = "DOUBLE",
+                        ["optimized_min_rsrp"] = "DOUBLE",
+                        ["optimized_min_rsrq"] = "DOUBLE",
+                        ["optimized_min_sinr"] = "DOUBLE",
+                        ["diff_min_rsrp"] = "DOUBLE",
+                        ["diff_min_rsrq"] = "DOUBLE",
+                        ["diff_min_sinr"] = "DOUBLE",
+                    };
+
+                    var existingColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    await using (var cmdCols = conn.CreateCommand())
+                    {
+                        cmdCols.CommandText = @"
+                            SELECT COLUMN_NAME
+                            FROM information_schema.columns
+                            WHERE table_schema = DATABASE()
+                              AND table_name = 'grid_analytics_results';";
+
+                        await using var reader = await cmdCols.ExecuteReaderAsync();
+                        while (await reader.ReadAsync())
+                        {
+                            var colName = reader.IsDBNull(0) ? null : reader.GetString(0);
+                            if (!string.IsNullOrWhiteSpace(colName))
+                                existingColumns.Add(colName);
+                        }
+                    }
+
+                    var missingClauses = requiredColumns
+                        .Where(kv => !existingColumns.Contains(kv.Key))
+                        .Select(kv => $"ADD COLUMN `{kv.Key}` {kv.Value}")
+                        .ToList();
+
+                    if (missingClauses.Count > 0)
+                    {
+                        await using var cmdAlter = conn.CreateCommand();
+                        cmdAlter.CommandText =
+                            $"ALTER TABLE grid_analytics_results {string.Join(", ", missingClauses)};";
+                        await cmdAlter.ExecuteNonQueryAsync();
                     }
 
                     // ── 3. FETCH grid_size FROM tbl_project ──
@@ -132,44 +180,126 @@ namespace SignalTracker.Controllers
                             return Unauthorized(new { Status = 0, Message = "Project does not belong to your company." });
                     }
 
-                    // ── 5. FETCH POLYGON WKT from map_regions ──
-                    string? polygonWkt = null;
-                    await using var cmdPoly = conn.CreateCommand();
+                    // ── 5. FETCH PREDICTION DATA (raw ADO.NET) ──
+                    // Compute should include all sectors available in baseline + optimized for this project.
+                    var baselinePts = await FetchPredictionData(conn, "lte_prediction_baseline_results", projectId);
+                    var optimizedPts = await FetchPredictionData(conn, "lte_prediction_optimised_results", projectId);
+                    var allPredictionPts = baselinePts.Concat(optimizedPts).ToList();
+                    if (allPredictionPts.Count == 0)
+                    {
+                        return Ok(new GridAnalyticsResponse
+                        {
+                            Status = 1,
+                            Message = "No baseline/optimized prediction points found for this project. Nothing to compute.",
+                            Data = null
+                        });
+                    }
+
+                    // ── 6. RESOLVE GRID BOUNDARY ──
+                    // If regionId is explicitly provided, use that region polygon.
+                    // Otherwise, use project map_regions polygons (all active regions) as boundary.
+                    // If no valid map_regions polygon exists, fallback to prediction bounds.
+                    string boundarySource = "prediction_bounds";
+                    var vertices = new List<(double Lat, double Lon)>();
+
                     if (regionId.HasValue && regionId.Value > 0)
                     {
+                        string? polygonWkt = null;
+                        await using var cmdPoly = conn.CreateCommand();
                         cmdPoly.CommandText = "SELECT ST_AsText(region) FROM map_regions WHERE id = @rid AND tbl_project_id = @pid AND status = 1 LIMIT 1";
                         AddParam(cmdPoly, "@rid", regionId.Value);
                         AddParam(cmdPoly, "@pid", projectId);
+                        var polyRes = await cmdPoly.ExecuteScalarAsync();
+                        if (polyRes != null && polyRes != DBNull.Value)
+                            polygonWkt = polyRes.ToString();
+
+                        if (string.IsNullOrWhiteSpace(polygonWkt))
+                            return BadRequest(new { Status = 0, Message = "No polygon found for provided regionId." });
+
+                        vertices = ParsePolygonWkt(polygonWkt);
+                        if (vertices.Count < 3)
+                            return BadRequest(new { Status = 0, Message = "Invalid polygon geometry for provided regionId." });
+
+                        boundarySource = "map_region";
                     }
                     else
                     {
-                        cmdPoly.CommandText = "SELECT ST_AsText(region) FROM map_regions WHERE tbl_project_id = @pid AND status = 1 LIMIT 1";
-                        AddParam(cmdPoly, "@pid", projectId);
-                    }
-                    var polyRes = await cmdPoly.ExecuteScalarAsync();
-                    if (polyRes != null && polyRes != DBNull.Value)
-                        polygonWkt = polyRes.ToString();
-                    if (string.IsNullOrWhiteSpace(polygonWkt))
-                        return BadRequest(new { Status = 0, Message = "No polygon found for this project." });
+                        var projectRegionVertices = new List<(double Lat, double Lon)>();
+                        await using var cmdPolyAll = conn.CreateCommand();
+                        cmdPolyAll.CommandText =
+                            "SELECT ST_AsText(region) FROM map_regions WHERE tbl_project_id = @pid AND status = 1";
+                        AddParam(cmdPolyAll, "@pid", projectId);
 
-                    // ── 6. PARSE POLYGON & GENERATE GRID ──
-                    var vertices = ParsePolygonWkt(polygonWkt);
+                        await using (var rdrPoly = await cmdPolyAll.ExecuteReaderAsync())
+                        {
+                            while (await rdrPoly.ReadAsync())
+                            {
+                                if (rdrPoly.IsDBNull(0)) continue;
+                                var wkt = rdrPoly.GetString(0);
+                                var parsed = ParsePolygonWkt(wkt);
+                                if (parsed.Count >= 3)
+                                {
+                                    projectRegionVertices.AddRange(parsed);
+                                }
+                            }
+                        }
+
+                        if (projectRegionVertices.Count >= 3)
+                        {
+                            // Use project polygon envelope to cover all project regions.
+                            vertices = BuildBoundingPolygonFromVertices(projectRegionVertices);
+                            boundarySource = "map_regions_project";
+                        }
+                        else
+                        {
+                            vertices = BuildBoundingPolygonFromPoints(allPredictionPts);
+                            boundarySource = "prediction_bounds";
+                        }
+                    }
+
                     if (vertices.Count < 3)
-                        return BadRequest(new { Status = 0, Message = "Invalid polygon geometry." });
+                    {
+                        return Ok(new GridAnalyticsResponse
+                        {
+                            Status = 1,
+                            Message = "Unable to compute grid boundary from region or prediction data.",
+                            Data = null
+                        });
+                    }
 
                     var (gridCells, gLat, gLon, mLat, mLon) = GenerateGrid(vertices, gridSizeMeters);
                     if (gridCells.Count == 0)
-                        return Ok(new GridAnalyticsResponse { Status = 1, Message = "No grid cells inside polygon." });
+                        return Ok(new GridAnalyticsResponse { Status = 1, Message = $"No grid cells generated for boundary source: {boundarySource}." });
 
-                    // ── 7. FETCH PREDICTION DATA (raw ADO.NET) ──
-                    var baselinePts = await FetchPredictionData(conn, "lte_prediction_baseline_results", projectId);
-                    var optimizedPts = await FetchPredictionData(conn, "lte_prediction_optimised_results", projectId);
-
-                    // ── 8. MAP POINTS → GRIDS ──
+                    // ── 7. MAP POINTS → GRIDS ──
                     var baseByGrid = MapPointsToGrids(baselinePts, mLat, mLon, gLat, gLon, gridCells);
                     var optByGrid = MapPointsToGrids(optimizedPts, mLat, mLon, gLat, gLon, gridCells);
+                    int baselineMappedPoints = baseByGrid.Values.Sum(v => v.Count);
+                    int optimizedMappedPoints = optByGrid.Values.Sum(v => v.Count);
 
-                    // ── 9. COMPUTE METRICS & DIFFERENCES ──
+                    // Project map_regions boundary can still be stale/misaligned. If no point maps, fallback.
+                    if (!regionId.HasValue && boundarySource == "map_regions_project" &&
+                        baselineMappedPoints == 0 && optimizedMappedPoints == 0)
+                    {
+                        var fallbackVertices = BuildBoundingPolygonFromPoints(allPredictionPts);
+                        if (fallbackVertices.Count >= 3)
+                        {
+                            var fallbackGrid = GenerateGrid(fallbackVertices, gridSizeMeters);
+                            gridCells = fallbackGrid.cells;
+                            gLat = fallbackGrid.gLat;
+                            gLon = fallbackGrid.gLon;
+                            mLat = fallbackGrid.minLat;
+                            mLon = fallbackGrid.minLon;
+                            boundarySource = "prediction_bounds_fallback";
+
+                            baseByGrid = MapPointsToGrids(baselinePts, mLat, mLon, gLat, gLon, gridCells);
+                            optByGrid = MapPointsToGrids(optimizedPts, mLat, mLon, gLat, gLon, gridCells);
+                            baselineMappedPoints = baseByGrid.Values.Sum(v => v.Count);
+                            optimizedMappedPoints = optByGrid.Values.Sum(v => v.Count);
+                        }
+                    }
+
+                    // ── 8. COMPUTE METRICS & DIFFERENCES ──
                     var resultsList = new List<grid_analytics_results>();
                     foreach (var cell in gridCells.Values)
                     {
@@ -196,49 +326,46 @@ namespace SignalTracker.Controllers
 
                             baseline_avg_rsrp = bm.avg_rsrp, baseline_avg_rsrq = bm.avg_rsrq, baseline_avg_sinr = bm.avg_sinr,
                             baseline_median_rsrp = bm.median_rsrp, baseline_median_rsrq = bm.median_rsrq, baseline_median_sinr = bm.median_sinr,
+                            baseline_min_rsrp = bm.min_rsrp, baseline_min_rsrq = bm.min_rsrq, baseline_min_sinr = bm.min_sinr,
                             baseline_max_rsrp = bm.max_rsrp, baseline_max_rsrq = bm.max_rsrq, baseline_max_sinr = bm.max_sinr,
                             baseline_mode_rsrp = bm.mode_rsrp, baseline_mode_rsrq = bm.mode_rsrq, baseline_mode_sinr = bm.mode_sinr,
 
                             optimized_avg_rsrp = om.avg_rsrp, optimized_avg_rsrq = om.avg_rsrq, optimized_avg_sinr = om.avg_sinr,
                             optimized_median_rsrp = om.median_rsrp, optimized_median_rsrq = om.median_rsrq, optimized_median_sinr = om.median_sinr,
+                            optimized_min_rsrp = om.min_rsrp, optimized_min_rsrq = om.min_rsrq, optimized_min_sinr = om.min_sinr,
                             optimized_max_rsrp = om.max_rsrp, optimized_max_rsrq = om.max_rsrq, optimized_max_sinr = om.max_sinr,
                             optimized_mode_rsrp = om.mode_rsrp, optimized_mode_rsrq = om.mode_rsrq, optimized_mode_sinr = om.mode_sinr,
 
                             diff_avg_rsrp = diff.diff_avg_rsrp, diff_avg_rsrq = diff.diff_avg_rsrq, diff_avg_sinr = diff.diff_avg_sinr,
                             diff_median_rsrp = diff.diff_median_rsrp, diff_median_rsrq = diff.diff_median_rsrq, diff_median_sinr = diff.diff_median_sinr,
+                            diff_min_rsrp = diff.diff_min_rsrp, diff_min_rsrq = diff.diff_min_rsrq, diff_min_sinr = diff.diff_min_sinr,
                             diff_max_rsrp = diff.diff_max_rsrp, diff_max_rsrq = diff.diff_max_rsrq, diff_max_sinr = diff.diff_max_sinr,
                             diff_mode_rsrp = diff.diff_mode_rsrp, diff_mode_rsrq = diff.diff_mode_rsrq, diff_mode_sinr = diff.diff_mode_sinr,
                             created_at = DateTime.UtcNow
                         });
                     }
 
-                    // ── 10. REMOVE EXISTING AND STORE TO DATABASE ──
-                    using (var transaction = await conn.BeginTransactionAsync())
+                    // ── 9. REMOVE EXISTING AND STORE TO DATABASE ──
+                    await using (var cmdDel = conn.CreateCommand())
                     {
-                        await using (var cmdDel = conn.CreateCommand())
+                        if (regionId.HasValue && regionId.Value > 0)
                         {
-                            cmdDel.Transaction = transaction;
-                            if (regionId.HasValue && regionId.Value > 0)
-                            {
-                                cmdDel.CommandText = "DELETE FROM grid_analytics_results WHERE project_id = @pid AND region_id = @rid";
-                                AddParam(cmdDel, "@rid", regionId.Value);
-                                AddParam(cmdDel, "@pid", projectId);
-                            }
-                            else
-                            {
-                                cmdDel.CommandText = "DELETE FROM grid_analytics_results WHERE project_id = @pid AND (region_id IS NULL OR region_id <= 0)";
-                                AddParam(cmdDel, "@pid", projectId);
-                            }
-                            await cmdDel.ExecuteNonQueryAsync();
+                            cmdDel.CommandText = "DELETE FROM grid_analytics_results WHERE project_id = @pid AND region_id = @rid";
+                            AddParam(cmdDel, "@rid", regionId.Value);
+                            AddParam(cmdDel, "@pid", projectId);
                         }
-                        
-                        if (resultsList.Any())
+                        else
                         {
-                            _db.grid_analytics_results.AddRange(resultsList);
-                            await _db.SaveChangesAsync();
+                            cmdDel.CommandText = "DELETE FROM grid_analytics_results WHERE project_id = @pid AND (region_id IS NULL OR region_id <= 0)";
+                            AddParam(cmdDel, "@pid", projectId);
                         }
+                        await cmdDel.ExecuteNonQueryAsync();
+                    }
 
-                        await transaction.CommitAsync();
+                    if (resultsList.Any())
+                    {
+                        _db.grid_analytics_results.AddRange(resultsList);
+                        await _db.SaveChangesAsync();
                     }
 
                     // Invalidate potentially cached read calls
@@ -252,7 +379,7 @@ namespace SignalTracker.Controllers
                     var response = new GridAnalyticsResponse
                     {
                         Status = 1,
-                        Message = $"Grid analytics computed and STORED successfully. {resultsList.Count} grids with data saved.",
+                        Message = $"Grid analytics computed and stored. boundary={boundarySource}; baselinePts={baselinePts.Count}; optimizedPts={optimizedPts.Count}; baselineMapped={baselineMappedPoints}; optimizedMapped={optimizedMappedPoints}; totalGrids={gridCells.Count}; gridsWithData={resultsList.Count}.",
                         Data = new GridAnalyticsData
                         {
                             project_id = projectId, grid_size_meters = gridSizeMeters,
@@ -475,16 +602,112 @@ namespace SignalTracker.Controllers
             await using var rdr = await cmd.ExecuteReaderAsync();
             while (await rdr.ReadAsync())
             {
+                if (rdr.IsDBNull(0) || rdr.IsDBNull(1))
+                    continue;
+
+                double lat;
+                double lon;
+                try
+                {
+                    lat = Convert.ToDouble(rdr.GetValue(0), CultureInfo.InvariantCulture);
+                    lon = Convert.ToDouble(rdr.GetValue(1), CultureInfo.InvariantCulture);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                if (!IsValidLatLon(lat, lon))
+                    continue;
+
                 pts.Add(new PredPoint
                 {
-                    Lat = rdr.IsDBNull(0) ? 0 : rdr.GetDouble(0),
-                    Lon = rdr.IsDBNull(1) ? 0 : rdr.GetDouble(1),
+                    Lat = lat,
+                    Lon = lon,
                     Rsrp = rdr.IsDBNull(2) ? null : Convert.ToDouble(rdr.GetValue(2)),
                     Rsrq = rdr.IsDBNull(3) ? null : Convert.ToDouble(rdr.GetValue(3)),
                     Sinr = rdr.IsDBNull(4) ? null : Convert.ToDouble(rdr.GetValue(4))
                 });
             }
             return pts;
+        }
+
+        private static List<(double Lat, double Lon)> BuildBoundingPolygonFromPoints(List<PredPoint> points)
+        {
+            var valid = (points ?? new List<PredPoint>())
+                .Where(p => IsValidLatLon(p.Lat, p.Lon))
+                .ToList();
+
+            if (valid.Count == 0) return new List<(double Lat, double Lon)>();
+
+            double minLat = valid.Min(p => p.Lat);
+            double maxLat = valid.Max(p => p.Lat);
+            double minLon = valid.Min(p => p.Lon);
+            double maxLon = valid.Max(p => p.Lon);
+
+            // Avoid zero-area polygons for edge cases where all points have same lat/lon.
+            if (Math.Abs(maxLat - minLat) < 1e-9)
+            {
+                minLat -= 1e-6;
+                maxLat += 1e-6;
+            }
+            if (Math.Abs(maxLon - minLon) < 1e-9)
+            {
+                minLon -= 1e-6;
+                maxLon += 1e-6;
+            }
+
+            return new List<(double Lat, double Lon)>
+            {
+                (minLat, minLon),
+                (minLat, maxLon),
+                (maxLat, maxLon),
+                (maxLat, minLon),
+                (minLat, minLon),
+            };
+        }
+
+        private static List<(double Lat, double Lon)> BuildBoundingPolygonFromVertices(
+            List<(double Lat, double Lon)> vertices)
+        {
+            var valid = (vertices ?? new List<(double Lat, double Lon)>())
+                .Where(v => IsValidLatLon(v.Lat, v.Lon))
+                .ToList();
+
+            if (valid.Count == 0) return new List<(double Lat, double Lon)>();
+
+            double minLat = valid.Min(v => v.Lat);
+            double maxLat = valid.Max(v => v.Lat);
+            double minLon = valid.Min(v => v.Lon);
+            double maxLon = valid.Max(v => v.Lon);
+
+            if (Math.Abs(maxLat - minLat) < 1e-9)
+            {
+                minLat -= 1e-6;
+                maxLat += 1e-6;
+            }
+            if (Math.Abs(maxLon - minLon) < 1e-9)
+            {
+                minLon -= 1e-6;
+                maxLon += 1e-6;
+            }
+
+            return new List<(double Lat, double Lon)>
+            {
+                (minLat, minLon),
+                (minLat, maxLon),
+                (maxLat, maxLon),
+                (maxLat, minLon),
+                (minLat, minLon),
+            };
+        }
+
+        private static bool IsValidLatLon(double lat, double lon)
+        {
+            if (double.IsNaN(lat) || double.IsInfinity(lat) || double.IsNaN(lon) || double.IsInfinity(lon))
+                return false;
+
+            return lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
         }
 
         private static Dictionary<string, List<PredPoint>> MapPointsToGrids(
@@ -515,6 +738,7 @@ namespace SignalTracker.Controllers
                 point_count = pts.Count,
                 avg_rsrp = Avg(rp), avg_rsrq = Avg(rq), avg_sinr = Avg(sn),
                 median_rsrp = Median(rp), median_rsrq = Median(rq), median_sinr = Median(sn),
+                min_rsrp = Min(rp), min_rsrq = Min(rq), min_sinr = Min(sn),
                 max_rsrp = Max(rp), max_rsrq = Max(rq), max_sinr = Max(sn),
                 mode_rsrp = Mode(rp), mode_rsrq = Mode(rq), mode_sinr = Mode(sn)
             };
@@ -526,6 +750,7 @@ namespace SignalTracker.Controllers
             {
                 diff_avg_rsrp = D(o.avg_rsrp, b.avg_rsrp), diff_avg_rsrq = D(o.avg_rsrq, b.avg_rsrq), diff_avg_sinr = D(o.avg_sinr, b.avg_sinr),
                 diff_median_rsrp = D(o.median_rsrp, b.median_rsrp), diff_median_rsrq = D(o.median_rsrq, b.median_rsrq), diff_median_sinr = D(o.median_sinr, b.median_sinr),
+                diff_min_rsrp = D(o.min_rsrp, b.min_rsrp), diff_min_rsrq = D(o.min_rsrq, b.min_rsrq), diff_min_sinr = D(o.min_sinr, b.min_sinr),
                 diff_max_rsrp = D(o.max_rsrp, b.max_rsrp), diff_max_rsrq = D(o.max_rsrq, b.max_rsrq), diff_max_sinr = D(o.max_sinr, b.max_sinr),
                 diff_mode_rsrp = D(o.mode_rsrp, b.mode_rsrp), diff_mode_rsrq = D(o.mode_rsrq, b.mode_rsrq), diff_mode_sinr = D(o.mode_sinr, b.mode_sinr)
             };
@@ -550,6 +775,7 @@ namespace SignalTracker.Controllers
                         point_count = s.baseline_point_count,
                         avg_rsrp = s.baseline_avg_rsrp, avg_rsrq = s.baseline_avg_rsrq, avg_sinr = s.baseline_avg_sinr,
                         median_rsrp = s.baseline_median_rsrp, median_rsrq = s.baseline_median_rsrq, median_sinr = s.baseline_median_sinr,
+                        min_rsrp = s.baseline_min_rsrp, min_rsrq = s.baseline_min_rsrq, min_sinr = s.baseline_min_sinr,
                         max_rsrp = s.baseline_max_rsrp, max_rsrq = s.baseline_max_rsrq, max_sinr = s.baseline_max_sinr,
                         mode_rsrp = s.baseline_mode_rsrp, mode_rsrq = s.baseline_mode_rsrq, mode_sinr = s.baseline_mode_sinr,
                     },
@@ -558,6 +784,7 @@ namespace SignalTracker.Controllers
                         point_count = s.optimized_point_count,
                         avg_rsrp = s.optimized_avg_rsrp, avg_rsrq = s.optimized_avg_rsrq, avg_sinr = s.optimized_avg_sinr,
                         median_rsrp = s.optimized_median_rsrp, median_rsrq = s.optimized_median_rsrq, median_sinr = s.optimized_median_sinr,
+                        min_rsrp = s.optimized_min_rsrp, min_rsrq = s.optimized_min_rsrq, min_sinr = s.optimized_min_sinr,
                         max_rsrp = s.optimized_max_rsrp, max_rsrq = s.optimized_max_rsrq, max_sinr = s.optimized_max_sinr,
                         mode_rsrp = s.optimized_mode_rsrp, mode_rsrq = s.optimized_mode_rsrq, mode_sinr = s.optimized_mode_sinr,
                     },
@@ -565,6 +792,7 @@ namespace SignalTracker.Controllers
                     {
                         diff_avg_rsrp = s.diff_avg_rsrp, diff_avg_rsrq = s.diff_avg_rsrq, diff_avg_sinr = s.diff_avg_sinr,
                         diff_median_rsrp = s.diff_median_rsrp, diff_median_rsrq = s.diff_median_rsrq, diff_median_sinr = s.diff_median_sinr,
+                        diff_min_rsrp = s.diff_min_rsrp, diff_min_rsrq = s.diff_min_rsrq, diff_min_sinr = s.diff_min_sinr,
                         diff_max_rsrp = s.diff_max_rsrp, diff_max_rsrq = s.diff_max_rsrq, diff_max_sinr = s.diff_max_sinr,
                         diff_mode_rsrp = s.diff_mode_rsrp, diff_mode_rsrq = s.diff_mode_rsrq, diff_mode_sinr = s.diff_mode_sinr,
                     }
@@ -574,6 +802,7 @@ namespace SignalTracker.Controllers
         }
 
         private static double? Avg(List<double> v) => v.Count > 0 ? Math.Round(v.Average(), 2) : null;
+        private static double? Min(List<double> v) => v.Count > 0 ? Math.Round(v.Min(), 2) : null;
         private static double? Max(List<double> v) => v.Count > 0 ? Math.Round(v.Max(), 2) : null;
         private static double? D(double? a, double? b) => (a.HasValue && b.HasValue) ? Math.Round(a.Value - b.Value, 2) : null;
 
@@ -668,6 +897,9 @@ namespace SignalTracker.Controllers
             public double? median_rsrp { get; set; }
             public double? median_rsrq { get; set; }
             public double? median_sinr { get; set; }
+            public double? min_rsrp { get; set; }
+            public double? min_rsrq { get; set; }
+            public double? min_sinr { get; set; }
             public double? max_rsrp { get; set; }
             public double? max_rsrq { get; set; }
             public double? max_sinr { get; set; }
@@ -684,6 +916,9 @@ namespace SignalTracker.Controllers
             public double? diff_median_rsrp { get; set; }
             public double? diff_median_rsrq { get; set; }
             public double? diff_median_sinr { get; set; }
+            public double? diff_min_rsrp { get; set; }
+            public double? diff_min_rsrq { get; set; }
+            public double? diff_min_sinr { get; set; }
             public double? diff_max_rsrp { get; set; }
             public double? diff_max_rsrq { get; set; }
             public double? diff_max_sinr { get; set; }

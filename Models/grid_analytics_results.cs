@@ -54,6 +54,9 @@ namespace SignalTracker.Models
         [Column("baseline_median_rsrp")]public double? baseline_median_rsrp { get; set; }
         [Column("baseline_median_rsrq")]public double? baseline_median_rsrq { get; set; }
         [Column("baseline_median_sinr")]public double? baseline_median_sinr { get; set; }
+        [Column("baseline_min_rsrp")]   public double? baseline_min_rsrp { get; set; }
+        [Column("baseline_min_rsrq")]   public double? baseline_min_rsrq { get; set; }
+        [Column("baseline_min_sinr")]   public double? baseline_min_sinr { get; set; }
         [Column("baseline_max_rsrp")]   public double? baseline_max_rsrp { get; set; }
         [Column("baseline_max_rsrq")]   public double? baseline_max_rsrq { get; set; }
         [Column("baseline_max_sinr")]   public double? baseline_max_sinr { get; set; }
@@ -68,6 +71,9 @@ namespace SignalTracker.Models
         [Column("optimized_median_rsrp")]public double? optimized_median_rsrp { get; set; }
         [Column("optimized_median_rsrq")]public double? optimized_median_rsrq { get; set; }
         [Column("optimized_median_sinr")]public double? optimized_median_sinr { get; set; }
+        [Column("optimized_min_rsrp")]   public double? optimized_min_rsrp { get; set; }
+        [Column("optimized_min_rsrq")]   public double? optimized_min_rsrq { get; set; }
+        [Column("optimized_min_sinr")]   public double? optimized_min_sinr { get; set; }
         [Column("optimized_max_rsrp")]   public double? optimized_max_rsrp { get; set; }
         [Column("optimized_max_rsrq")]   public double? optimized_max_rsrq { get; set; }
         [Column("optimized_max_sinr")]   public double? optimized_max_sinr { get; set; }
@@ -82,6 +88,9 @@ namespace SignalTracker.Models
         [Column("diff_median_rsrp")]public double? diff_median_rsrp { get; set; }
         [Column("diff_median_rsrq")]public double? diff_median_rsrq { get; set; }
         [Column("diff_median_sinr")]public double? diff_median_sinr { get; set; }
+        [Column("diff_min_rsrp")]   public double? diff_min_rsrp { get; set; }
+        [Column("diff_min_rsrq")]   public double? diff_min_rsrq { get; set; }
+        [Column("diff_min_sinr")]   public double? diff_min_sinr { get; set; }
         [Column("diff_max_rsrp")]   public double? diff_max_rsrp { get; set; }
         [Column("diff_max_rsrq")]   public double? diff_max_rsrq { get; set; }
         [Column("diff_max_sinr")]   public double? diff_max_sinr { get; set; }

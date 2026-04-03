@@ -74,6 +74,7 @@ protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         public DbSet<map_regions> map_regions => Set<map_regions>();
         public DbSet<tbl_upload_history> tbl_upload_history => Set<tbl_upload_history>();
         public DbSet<tbl_dashboard_cache> tbl_dashboard_cache { get; set; }
+        public DbSet<grid_analytics_results> grid_analytics_results { get; set; }
 
         // ======= DTOs (Keyless Views) =======
         public DbSet<N78NeighbourDto> N78NeighbourDto { get; set; }

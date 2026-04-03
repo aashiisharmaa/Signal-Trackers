@@ -524,10 +524,395 @@ namespace SignalTracker.Controllers
             }
         }
 
+        // =====================================================================
+        // GET api/GridAnalytics/GetCoverageOptimizationSummary
+        // Project-level summary from site_prediction vs site_prediction_optimized
+        // =====================================================================
+        [HttpGet("GetCoverageOptimizationSummary")]
+        public async Task<IActionResult> GetCoverageOptimizationSummary(
+            [FromQuery] int projectId,
+            [FromQuery] int? company_id = null)
+        {
+            var sw = Stopwatch.StartNew();
+
+            int targetCompanyId = _userScope.GetTargetCompanyId(User, company_id);
+            bool isSuperAdmin = _userScope.IsSuperAdmin(User);
+            if (!isSuperAdmin && targetCompanyId == 0)
+                return Unauthorized(new { Status = 0, Message = "Unauthorized. Unable to resolve company context." });
+
+            try
+            {
+                if (projectId <= 0)
+                    return BadRequest(new { Status = 0, Message = "projectId is required." });
+
+                if (targetCompanyId > 0)
+                {
+                    bool access = await _db.tbl_project.AnyAsync(p => p.id == projectId && p.company_id == targetCompanyId);
+                    if (!access)
+                        return Unauthorized(new { Status = 0, Message = "Project does not belong to your company." });
+                }
+
+                var conn = _db.Database.GetDbConnection();
+                bool shouldClose = false;
+                if (conn.State != ConnectionState.Open)
+                {
+                    await conn.OpenAsync();
+                    shouldClose = true;
+                }
+
+                try
+                {
+                    int baselineTotalRows;
+                    int optimizedTotalRows;
+
+                    await using (var cmdBaseCount = conn.CreateCommand())
+                    {
+                        cmdBaseCount.CommandText = "SELECT COUNT(1) FROM site_prediction WHERE tbl_project_id = @pid;";
+                        AddParam(cmdBaseCount, "@pid", projectId);
+                        baselineTotalRows = Convert.ToInt32(await cmdBaseCount.ExecuteScalarAsync() ?? 0);
+                    }
+
+                    bool optimizedTableExists;
+                    await using (var cmdSchema = conn.CreateCommand())
+                    {
+                        cmdSchema.CommandText = @"
+                            SELECT COUNT(1)
+                            FROM information_schema.tables
+                            WHERE table_schema = DATABASE()
+                              AND table_name = 'site_prediction_optimized';";
+                        optimizedTableExists = Convert.ToInt32(await cmdSchema.ExecuteScalarAsync() ?? 0) > 0;
+                    }
+
+                    if (!optimizedTableExists)
+                    {
+                        sw.Stop();
+                        return Ok(new CoverageOptimizationSummaryResponse
+                        {
+                            Status = 1,
+                            Message = "Optimized table not found. No optimized changes available yet.",
+                            Data = new CoverageOptimizationSummaryData
+                            {
+                                project_id = projectId,
+                                baseline_total_rows = baselineTotalRows,
+                                optimized_total_rows = 0,
+                                matched_optimized_rows = 0,
+                                changed_row_count = 0,
+                                unchanged_row_count = 0,
+                                changed_sector_count = 0,
+                                field_changes = new List<CoverageFieldChangeCount>(),
+                                changed_sectors = new List<CoverageChangedSectorDetail>()
+                            }
+                        });
+                    }
+
+                    await using (var cmdOptCount = conn.CreateCommand())
+                    {
+                        cmdOptCount.CommandText = "SELECT COUNT(1) FROM site_prediction_optimized WHERE tbl_project_id = @pid;";
+                        AddParam(cmdOptCount, "@pid", projectId);
+                        optimizedTotalRows = Convert.ToInt32(await cmdOptCount.ExecuteScalarAsync() ?? 0);
+                    }
+
+                    var compareFields = new[]
+                    {
+                        "site", "sector", "cell_id",
+                        "latitude", "longitude",
+                        "tac", "pci",
+                        "azimuth", "height", "bw", "m_tilt", "e_tilt",
+                        "maximum_transmission_power_of_resource",
+                        "real_transmit_power_of_resource",
+                        "reference_signal_power",
+                        "cellsize", "frequency", "band",
+                        "uplink_center_frequency", "downlink_frequency",
+                        "earfcn", "cluster", "Technology"
+                    };
+
+                    var fieldChangeCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var field in compareFields) fieldChangeCounts[field] = 0;
+
+                    int matchedOptimizedRows = 0;
+                    int changedRowCount = 0;
+                    var changedSectorKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    var changedSectorDetails = new List<CoverageChangedSectorDetail>();
+
+                    await using var cmdCompare = conn.CreateCommand();
+                    cmdCompare.CommandText = @"
+                        SELECT
+                            sp.id AS baseline_id,
+                            sp.site AS baseline_site,
+                            sp.sector AS baseline_sector,
+                            sp.cell_id AS baseline_cell_id,
+                            sp.latitude AS baseline_latitude,
+                            sp.longitude AS baseline_longitude,
+                            sp.tac AS baseline_tac,
+                            sp.pci AS baseline_pci,
+                            sp.azimuth AS baseline_azimuth,
+                            sp.height AS baseline_height,
+                            sp.bw AS baseline_bw,
+                            sp.m_tilt AS baseline_m_tilt,
+                            sp.e_tilt AS baseline_e_tilt,
+                            sp.maximum_transmission_power_of_resource AS baseline_maximum_transmission_power_of_resource,
+                            sp.real_transmit_power_of_resource AS baseline_real_transmit_power_of_resource,
+                            sp.reference_signal_power AS baseline_reference_signal_power,
+                            sp.cellsize AS baseline_cellsize,
+                            sp.frequency AS baseline_frequency,
+                            sp.band AS baseline_band,
+                            sp.uplink_center_frequency AS baseline_uplink_center_frequency,
+                            sp.downlink_frequency AS baseline_downlink_frequency,
+                            sp.earfcn AS baseline_earfcn,
+                            sp.cluster AS baseline_cluster,
+                            sp.Technology AS baseline_Technology,
+                            spo.id AS optimized_id,
+                            spo.site AS optimized_site,
+                            spo.sector AS optimized_sector,
+                            spo.cell_id AS optimized_cell_id,
+                            spo.latitude AS optimized_latitude,
+                            spo.longitude AS optimized_longitude,
+                            spo.tac AS optimized_tac,
+                            spo.pci AS optimized_pci,
+                            spo.azimuth AS optimized_azimuth,
+                            spo.height AS optimized_height,
+                            spo.bw AS optimized_bw,
+                            spo.m_tilt AS optimized_m_tilt,
+                            spo.e_tilt AS optimized_e_tilt,
+                            spo.maximum_transmission_power_of_resource AS optimized_maximum_transmission_power_of_resource,
+                            spo.real_transmit_power_of_resource AS optimized_real_transmit_power_of_resource,
+                            spo.reference_signal_power AS optimized_reference_signal_power,
+                            spo.cellsize AS optimized_cellsize,
+                            spo.frequency AS optimized_frequency,
+                            spo.band AS optimized_band,
+                            spo.uplink_center_frequency AS optimized_uplink_center_frequency,
+                            spo.downlink_frequency AS optimized_downlink_frequency,
+                            spo.earfcn AS optimized_earfcn,
+                            spo.cluster AS optimized_cluster,
+                            spo.Technology AS optimized_Technology
+                        FROM site_prediction sp
+                        LEFT JOIN site_prediction_optimized spo
+                            ON spo.id = (
+                                SELECT o.id
+                                FROM site_prediction_optimized o
+                                WHERE o.tbl_project_id = sp.tbl_project_id
+                                  AND (
+                                    o.site_prediction_id = sp.id
+                                    OR (
+                                        (o.site_prediction_id IS NULL OR o.site_prediction_id = 0 OR o.site_prediction_id = o.tbl_project_id)
+                                        AND (
+                                            (o.cell_id IS NOT NULL AND sp.cell_id IS NOT NULL AND o.cell_id = sp.cell_id)
+                                            OR (
+                                                o.site IS NOT NULL
+                                                AND sp.site IS NOT NULL
+                                                AND o.site = sp.site
+                                                AND (
+                                                    o.sector IS NULL
+                                                    OR sp.sector IS NULL
+                                                    OR (
+                                                        CONVERT(o.sector USING utf8mb4) COLLATE utf8mb4_unicode_ci =
+                                                        CONVERT(sp.sector USING utf8mb4) COLLATE utf8mb4_unicode_ci
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                  )
+                                ORDER BY
+                                    CASE WHEN o.site_prediction_id = sp.id THEN 0 ELSE 1 END,
+                                    o.id DESC
+                                LIMIT 1
+                            )
+                        WHERE sp.tbl_project_id = @pid
+                        ORDER BY sp.id DESC;";
+                    AddParam(cmdCompare, "@pid", projectId);
+
+                    await using (var reader = await cmdCompare.ExecuteReaderAsync())
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            var optimizedId = ReadReaderValue(reader, "optimized_id");
+                            if (optimizedId == null) continue;
+                            matchedOptimizedRows += 1;
+
+                            var changedFields = new List<string>();
+                            foreach (var field in compareFields)
+                            {
+                                var baselineValue = ReadReaderValue(reader, $"baseline_{field}");
+                                var optimizedValue = ReadReaderValue(reader, $"optimized_{field}");
+                                if (!AreEquivalentDbValues(baselineValue, optimizedValue))
+                                {
+                                    changedFields.Add(field);
+                                    fieldChangeCounts[field] = fieldChangeCounts.TryGetValue(field, out var current)
+                                        ? current + 1
+                                        : 1;
+                                }
+                            }
+
+                            if (changedFields.Count == 0) continue;
+                            changedRowCount += 1;
+
+                            var site = Convert.ToString(ReadReaderValue(reader, "optimized_site") ?? ReadReaderValue(reader, "baseline_site")) ?? "";
+                            var sector = Convert.ToString(ReadReaderValue(reader, "optimized_sector") ?? ReadReaderValue(reader, "baseline_sector")) ?? "";
+                            var cellId = Convert.ToString(ReadReaderValue(reader, "optimized_cell_id") ?? ReadReaderValue(reader, "baseline_cell_id")) ?? "";
+                            var key = $"{site}|{sector}|{cellId}";
+                            if (!string.IsNullOrWhiteSpace(site) || !string.IsNullOrWhiteSpace(sector) || !string.IsNullOrWhiteSpace(cellId))
+                            {
+                                changedSectorKeys.Add(key);
+                            }
+
+                            if (changedSectorDetails.Count < 250)
+                            {
+                                changedSectorDetails.Add(new CoverageChangedSectorDetail
+                                {
+                                    baseline_id = ToNullableLong(ReadReaderValue(reader, "baseline_id")),
+                                    optimized_id = ToNullableLong(optimizedId),
+                                    site = site,
+                                    sector = sector,
+                                    cell_id = cellId,
+                                    changed_fields = changedFields
+                                });
+                            }
+                        }
+                    }
+
+                    var summary = new CoverageOptimizationSummaryData
+                    {
+                        project_id = projectId,
+                        baseline_total_rows = baselineTotalRows,
+                        optimized_total_rows = optimizedTotalRows,
+                        matched_optimized_rows = matchedOptimizedRows,
+                        changed_row_count = changedRowCount,
+                        unchanged_row_count = Math.Max(0, matchedOptimizedRows - changedRowCount),
+                        changed_sector_count = changedSectorKeys.Count,
+                        field_changes = fieldChangeCounts
+                            .Where(kv => kv.Value > 0)
+                            .OrderByDescending(kv => kv.Value)
+                            .Select(kv => new CoverageFieldChangeCount
+                            {
+                                field = kv.Key,
+                                count = kv.Value
+                            })
+                            .ToList(),
+                        changed_sectors = changedSectorDetails
+                    };
+
+                    sw.Stop();
+                    return Ok(new CoverageOptimizationSummaryResponse
+                    {
+                        Status = 1,
+                        Message = "Coverage optimization summary fetched successfully.",
+                        Data = summary
+                    });
+                }
+                finally
+                {
+                    if (shouldClose && conn.State == ConnectionState.Open)
+                        await conn.CloseAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                sw.Stop();
+                return StatusCode(500, new { Status = 0, Message = "Error: " + ex.Message, StackTrace = ex.StackTrace });
+            }
+        }
+
 
         // =====================================================================
         // HELPERS
         // =====================================================================
+        private static object? ReadReaderValue(DbDataReader reader, string columnName)
+        {
+            int ordinal;
+            try
+            {
+                ordinal = reader.GetOrdinal(columnName);
+            }
+            catch
+            {
+                return null;
+            }
+
+            return reader.IsDBNull(ordinal) ? null : reader.GetValue(ordinal);
+        }
+
+        private static long? ToNullableLong(object? value)
+        {
+            if (value == null || value == DBNull.Value) return null;
+            try
+            {
+                return Convert.ToInt64(value, CultureInfo.InvariantCulture);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static bool AreEquivalentDbValues(object? left, object? right)
+        {
+            if (left == null || left == DBNull.Value)
+            {
+                if (right == null || right == DBNull.Value) return true;
+                var rs = Convert.ToString(right, CultureInfo.InvariantCulture);
+                return string.IsNullOrWhiteSpace(rs);
+            }
+            if (right == null || right == DBNull.Value)
+            {
+                var ls = Convert.ToString(left, CultureInfo.InvariantCulture);
+                return string.IsNullOrWhiteSpace(ls);
+            }
+
+            if (TryToDouble(left, out var ld) && TryToDouble(right, out var rd))
+            {
+                return Math.Abs(ld - rd) <= 0.000001;
+            }
+
+            var leftString = Convert.ToString(left, CultureInfo.InvariantCulture)?.Trim() ?? "";
+            var rightString = Convert.ToString(right, CultureInfo.InvariantCulture)?.Trim() ?? "";
+            return string.Equals(leftString, rightString, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool TryToDouble(object? value, out double result)
+        {
+            result = 0;
+            if (value == null || value == DBNull.Value) return false;
+
+            switch (value)
+            {
+                case double d:
+                    result = d;
+                    return true;
+                case float f:
+                    result = f;
+                    return true;
+                case decimal m:
+                    result = (double)m;
+                    return true;
+                case int i:
+                    result = i;
+                    return true;
+                case long l:
+                    result = l;
+                    return true;
+                case short s:
+                    result = s;
+                    return true;
+                case byte b:
+                    result = b;
+                    return true;
+                case string str:
+                    return double.TryParse(str, NumberStyles.Any, CultureInfo.InvariantCulture, out result)
+                        || double.TryParse(str, NumberStyles.Any, CultureInfo.CurrentCulture, out result);
+                default:
+                    try
+                    {
+                        result = Convert.ToDouble(value, CultureInfo.InvariantCulture);
+                        return true;
+                    }
+                    catch
+                    {
+                        return false;
+                    }
+            }
+        }
+
         private static List<(double Lat, double Lon)> ParsePolygonWkt(string wkt)
         {
             var pts = new List<(double Lat, double Lon)>();
@@ -938,6 +1323,42 @@ namespace SignalTracker.Controllers
             public double? diff_mode_rsrp { get; set; }
             public double? diff_mode_rsrq { get; set; }
             public double? diff_mode_sinr { get; set; }
+        }
+
+        public class CoverageOptimizationSummaryResponse
+        {
+            public int Status { get; set; }
+            public string Message { get; set; } = "";
+            public CoverageOptimizationSummaryData? Data { get; set; }
+        }
+
+        public class CoverageOptimizationSummaryData
+        {
+            public int project_id { get; set; }
+            public int baseline_total_rows { get; set; }
+            public int optimized_total_rows { get; set; }
+            public int matched_optimized_rows { get; set; }
+            public int changed_row_count { get; set; }
+            public int unchanged_row_count { get; set; }
+            public int changed_sector_count { get; set; }
+            public List<CoverageFieldChangeCount> field_changes { get; set; } = new();
+            public List<CoverageChangedSectorDetail> changed_sectors { get; set; } = new();
+        }
+
+        public class CoverageFieldChangeCount
+        {
+            public string field { get; set; } = "";
+            public int count { get; set; }
+        }
+
+        public class CoverageChangedSectorDetail
+        {
+            public long? baseline_id { get; set; }
+            public long? optimized_id { get; set; }
+            public string site { get; set; } = "";
+            public string sector { get; set; } = "";
+            public string cell_id { get; set; } = "";
+            public List<string> changed_fields { get; set; } = new();
         }
     }
 }

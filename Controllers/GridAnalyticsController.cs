@@ -801,7 +801,20 @@ namespace SignalTracker.Controllers
             return res;
         }
 
-        private static double? Avg(List<double> v) => v.Count > 0 ? Math.Round(v.Average(), 2) : null;
+        private static double? Avg(List<double> v)
+        {
+            if (v.Count == 0) return null;
+            // For telecom dB/dBm values (RSRP, RSRQ, SINR), the physically accurate
+            // mean requires converting the logarithmic values to linear scale,
+            // averaging them, and converting back to logarithmic scale.
+            double sumLinear = 0;
+            foreach (var val in v)
+            {
+                sumLinear += Math.Pow(10, val / 10.0);
+            }
+            double avgLinear = sumLinear / v.Count;
+            return Math.Round(10 * Math.Log10(avgLinear), 2);
+        }
         private static double? Min(List<double> v) => v.Count > 0 ? Math.Round(v.Min(), 2) : null;
         private static double? Max(List<double> v) => v.Count > 0 ? Math.Round(v.Max(), 2) : null;
         private static double? D(double? a, double? b) => (a.HasValue && b.HasValue) ? Math.Round(a.Value - b.Value, 2) : null;

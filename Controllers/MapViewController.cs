@@ -6311,11 +6311,42 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                     }
 
                     long? explicitSiteId = null;
+                    string? explicitSiteSelectorText = null;
                     if (item.TryGetValue("site_id_selector", StringComparison.OrdinalIgnoreCase, out var siteIdToken) &&
                         long.TryParse(siteIdToken.ToString(), out var parsedSiteId))
                     {
                         explicitSiteId = parsedSiteId;
                     }
+                    if (item.TryGetValue("site_id_selector", StringComparison.OrdinalIgnoreCase, out var siteSelectorToken))
+                    {
+                        var rawSiteSelector = siteSelectorToken?.ToString()?.Trim();
+                        if (!string.IsNullOrWhiteSpace(rawSiteSelector))
+                        {
+                            explicitSiteSelectorText = rawSiteSelector;
+                        }
+                    }
+                    if (string.IsNullOrWhiteSpace(explicitSiteSelectorText) &&
+                        item.TryGetValue("site_selector", StringComparison.OrdinalIgnoreCase, out var altSiteSelectorToken))
+                    {
+                        var rawAltSiteSelector = altSiteSelectorToken?.ToString()?.Trim();
+                        if (!string.IsNullOrWhiteSpace(rawAltSiteSelector))
+                        {
+                            explicitSiteSelectorText = rawAltSiteSelector;
+                        }
+                    }
+
+                    string? explicitSectorSelectorText = null;
+                    if (item.TryGetValue("sector_selector", StringComparison.OrdinalIgnoreCase, out var sectorSelectorToken))
+                    {
+                        var rawSectorSelector = sectorSelectorToken?.ToString()?.Trim();
+                        if (!string.IsNullOrWhiteSpace(rawSectorSelector))
+                        {
+                            explicitSectorSelectorText = rawSectorSelector;
+                        }
+                    }
+                    var hasSiteSectorSelector =
+                        !string.IsNullOrWhiteSpace(explicitSiteSelectorText) &&
+                        !string.IsNullOrWhiteSpace(explicitSectorSelectorText);
 
                     long? sourceId = explicitSourceId;
                     long? siteId = explicitSiteId;
@@ -6346,6 +6377,8 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                         if (key.Equals("id", StringComparison.OrdinalIgnoreCase)) continue;
                         if (key.Equals("source_id", StringComparison.OrdinalIgnoreCase)) continue;
                         if (key.Equals("site_id_selector", StringComparison.OrdinalIgnoreCase)) continue;
+                        if (key.Equals("site_selector", StringComparison.OrdinalIgnoreCase)) continue;
+                        if (key.Equals("sector_selector", StringComparison.OrdinalIgnoreCase)) continue;
 
                         if (SitePredictionColumnMap.TryGetValue(key, out var dbColumn))
                         {
@@ -6393,6 +6426,35 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                                       FROM site_prediction_optimized spo
                                       WHERE spo.site_prediction_id = sp.id
                                   );"
+                            : hasSiteSectorSelector
+                                ? $@"
+                                INSERT INTO site_prediction_optimized (
+                                    site_prediction_id,
+                                    {insertColumnList},
+                                    is_updated,
+                                    version,
+                                    status,
+                                    created_at,
+                                    updated_at,
+                                    updated_by
+                                )
+                                SELECT
+                                    sp.id,
+                                    {selectColumnList},
+                                    1,
+                                    0,
+                                    'updated',
+                                    UTC_TIMESTAMP(),
+                                    UTC_TIMESTAMP(),
+                                    @updatedBy
+                                FROM site_prediction sp
+                                WHERE CONVERT(sp.site USING utf8mb4) COLLATE utf8mb4_unicode_ci = @targetSiteText
+                                  AND CONVERT(sp.sector USING utf8mb4) COLLATE utf8mb4_unicode_ci = @targetSectorText
+                                  AND NOT EXISTS (
+                                      SELECT 1
+                                      FROM site_prediction_optimized spo
+                                      WHERE spo.site_prediction_id = sp.id
+                                  );"
                             : $@"
                                 INSERT INTO site_prediction_optimized (
                                     site_prediction_id,
@@ -6423,6 +6485,11 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
 
                         Add(seedCmd, "@updatedBy", updatedBy);
                         if (sourceId.HasValue) Add(seedCmd, "@sourceId", sourceId.Value);
+                        else if (hasSiteSectorSelector)
+                        {
+                            Add(seedCmd, "@targetSiteText", explicitSiteSelectorText!);
+                            Add(seedCmd, "@targetSectorText", explicitSectorSelectorText!);
+                        }
                         else Add(seedCmd, "@targetSite", siteId!.Value);
                         await seedCmd.ExecuteNonQueryAsync();
                     }
@@ -6436,7 +6503,57 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                                 spo.version = COALESCE(spo.version, 0) + 1,
                                 spo.updated_at = UTC_TIMESTAMP(),
                                 spo.updated_by = @updatedBy_{lookupId}
-                            WHERE spo.site_prediction_id = @sourceId_{lookupId};"
+                            WHERE spo.site_prediction_id = @sourceId_{lookupId}
+                              AND spo.id = (
+                                  SELECT latest_id
+                                  FROM (
+                                      SELECT o.id AS latest_id
+                                      FROM site_prediction_optimized o
+                                      WHERE o.site_prediction_id = @sourceId_{lookupId}
+                                      ORDER BY o.id DESC
+                                      LIMIT 1
+                                  ) AS latest_source
+                              );"
+                        : hasSiteSectorSelector
+                            ? $@"
+                            UPDATE site_prediction_optimized spo
+                            LEFT JOIN site_prediction sp ON sp.id = spo.site_prediction_id
+                            SET {string.Join(", ", updates)},
+                                spo.is_updated = 1,
+                                spo.status = 'updated',
+                                spo.version = COALESCE(spo.version, 0) + 1,
+                                spo.updated_at = UTC_TIMESTAMP(),
+                                spo.updated_by = @updatedBy_{lookupId}
+                            WHERE (
+                                    (
+                                        CONVERT(spo.site USING utf8mb4) COLLATE utf8mb4_unicode_ci = @targetSiteText_{lookupId}
+                                        AND CONVERT(spo.sector USING utf8mb4) COLLATE utf8mb4_unicode_ci = @targetSectorText_{lookupId}
+                                    )
+                                    OR (
+                                        CONVERT(sp.site USING utf8mb4) COLLATE utf8mb4_unicode_ci = @targetSiteText_{lookupId}
+                                        AND CONVERT(sp.sector USING utf8mb4) COLLATE utf8mb4_unicode_ci = @targetSectorText_{lookupId}
+                                    )
+                                  )
+                              AND spo.id = (
+                                  SELECT latest_id
+                                  FROM (
+                                      SELECT o.id AS latest_id
+                                      FROM site_prediction_optimized o
+                                      LEFT JOIN site_prediction spx ON spx.id = o.site_prediction_id
+                                      WHERE (
+                                              (
+                                                  CONVERT(o.site USING utf8mb4) COLLATE utf8mb4_unicode_ci = @targetSiteText_{lookupId}
+                                                  AND CONVERT(o.sector USING utf8mb4) COLLATE utf8mb4_unicode_ci = @targetSectorText_{lookupId}
+                                              )
+                                              OR (
+                                                  CONVERT(spx.site USING utf8mb4) COLLATE utf8mb4_unicode_ci = @targetSiteText_{lookupId}
+                                                  AND CONVERT(spx.sector USING utf8mb4) COLLATE utf8mb4_unicode_ci = @targetSectorText_{lookupId}
+                                              )
+                                            )
+                                      ORDER BY o.id DESC
+                                      LIMIT 1
+                                  ) AS latest_site_sector
+                              );"
                         : $@"
                             UPDATE site_prediction_optimized spo
                             LEFT JOIN site_prediction sp ON sp.id = spo.site_prediction_id
@@ -6454,6 +6571,11 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                     cmd.CommandText = sql;
                     Add(cmd, $"@updatedBy_{lookupId}", updatedBy);
                     if (sourceId.HasValue) Add(cmd, $"@sourceId_{lookupId}", sourceId.Value);
+                    else if (hasSiteSectorSelector)
+                    {
+                        Add(cmd, $"@targetSiteText_{lookupId}", explicitSiteSelectorText!);
+                        Add(cmd, $"@targetSectorText_{lookupId}", explicitSectorSelectorText!);
+                    }
                     else Add(cmd, $"@targetSite_{lookupId}", siteId!.Value);
 
                     foreach (var kvp in parameters)
@@ -6486,6 +6608,214 @@ public async Task<IActionResult> UploadSitePredictionCsv([FromForm] UploadSitePr
                     Status = 0,
                     Message = "Error updating site prediction.",
                     FailedId = currentItemId > 0 ? (long?)currentItemId : null,
+                    Details = ex.Message
+                });
+            }
+        }
+
+        public class DeleteSitePredictionRequest
+        {
+            public long ProjectId { get; set; }
+            public long? SourceId { get; set; }
+            public string? Site { get; set; }
+            public string? Sector { get; set; }
+            public bool DeleteEntireSite { get; set; }
+            public bool OptimizedOnly { get; set; }
+        }
+
+        [HttpPost, Route("DeleteSitePrediction")]
+        public async Task<IActionResult> DeleteSitePrediction([FromBody] DeleteSitePredictionRequest? model)
+        {
+            if (model == null)
+                return BadRequest(new { Status = 0, Message = "Invalid payload." });
+
+            if (model.ProjectId <= 0)
+                return BadRequest(new { Status = 0, Message = "ProjectId is required." });
+
+            var siteValue = (model.Site ?? string.Empty).Trim();
+            var sectorValue = (model.Sector ?? string.Empty).Trim();
+            var deleteBySourceId = model.SourceId.HasValue && model.SourceId.Value > 0;
+            var deleteEntireSite = model.DeleteEntireSite;
+            var optimizedOnly = model.OptimizedOnly;
+
+            if (!deleteBySourceId && string.IsNullOrWhiteSpace(siteValue))
+                return BadRequest(new { Status = 0, Message = "Either SourceId or Site is required." });
+
+            if (!deleteBySourceId && !deleteEntireSite && string.IsNullOrWhiteSpace(sectorValue))
+                return BadRequest(new { Status = 0, Message = "Sector is required when deleting a single sector." });
+
+            try
+            {
+                var conn = db.Database.GetDbConnection();
+                if (conn.State != ConnectionState.Open)
+                    await conn.OpenAsync();
+
+                await EnsureSitePredictionOptimizedTableAsync(conn);
+
+                if (optimizedOnly)
+                {
+                    await using var txOptimizedOnly = await conn.BeginTransactionAsync();
+                    await using var deleteOptimizedOnlyCmd = conn.CreateCommand();
+                    deleteOptimizedOnlyCmd.Transaction = txOptimizedOnly;
+
+                    var optimizedWhereParts = new List<string> { "spo.tbl_project_id = @pid" };
+                    if (deleteBySourceId)
+                    {
+                        optimizedWhereParts.Add("spo.site_prediction_id = @sourceId");
+                    }
+                    else
+                    {
+                        optimizedWhereParts.Add(
+                            "CONVERT(spo.site USING utf8mb4) COLLATE utf8mb4_unicode_ci = @site");
+                        if (!deleteEntireSite)
+                        {
+                            optimizedWhereParts.Add(
+                                "CONVERT(spo.sector USING utf8mb4) COLLATE utf8mb4_unicode_ci = @sector");
+                        }
+                    }
+
+                    deleteOptimizedOnlyCmd.CommandText = $@"
+                        DELETE FROM site_prediction_optimized spo
+                        WHERE {string.Join(" AND ", optimizedWhereParts)};";
+
+                    Add(deleteOptimizedOnlyCmd, "@pid", model.ProjectId);
+                    if (deleteBySourceId) Add(deleteOptimizedOnlyCmd, "@sourceId", model.SourceId!.Value);
+                    if (!deleteBySourceId) Add(deleteOptimizedOnlyCmd, "@site", siteValue);
+                    if (!deleteBySourceId && !deleteEntireSite) Add(deleteOptimizedOnlyCmd, "@sector", sectorValue);
+
+                    var deletedOptimizedOnlyRows = await deleteOptimizedOnlyCmd.ExecuteNonQueryAsync();
+                    await txOptimizedOnly.CommitAsync();
+
+                    return Ok(new
+                    {
+                        Status = 1,
+                        Message = deletedOptimizedOnlyRows > 0
+                            ? "Optimized rows deleted successfully."
+                            : "No optimized rows matched the request.",
+                        RowsAffected = deletedOptimizedOnlyRows,
+                        DeletedSourceRows = 0,
+                        DeletedOptimizedRows = deletedOptimizedOnlyRows,
+                        OptimizedOnly = true
+                    });
+                }
+
+                await using var tx = await conn.BeginTransactionAsync();
+
+                var whereParts = new List<string> { "sp.tbl_project_id = @pid" };
+                if (deleteBySourceId)
+                {
+                    whereParts.Add("sp.id = @sourceId");
+                }
+                else
+                {
+                    whereParts.Add("CONVERT(sp.site USING utf8mb4) COLLATE utf8mb4_unicode_ci = @site");
+                    if (!deleteEntireSite)
+                    {
+                        whereParts.Add("CONVERT(sp.sector USING utf8mb4) COLLATE utf8mb4_unicode_ci = @sector");
+                    }
+                }
+
+                var selectSql = $@"
+                    SELECT sp.id
+                    FROM site_prediction sp
+                    WHERE {string.Join(" AND ", whereParts)};";
+
+                var sourceIds = new List<long>();
+                await using (var selectCmd = conn.CreateCommand())
+                {
+                    selectCmd.Transaction = tx;
+                    selectCmd.CommandText = selectSql;
+                    Add(selectCmd, "@pid", model.ProjectId);
+                    if (deleteBySourceId) Add(selectCmd, "@sourceId", model.SourceId!.Value);
+                    if (!deleteBySourceId) Add(selectCmd, "@site", siteValue);
+                    if (!deleteBySourceId && !deleteEntireSite) Add(selectCmd, "@sector", sectorValue);
+
+                    await using var reader = await selectCmd.ExecuteReaderAsync();
+                    while (await reader.ReadAsync())
+                    {
+                        if (!await reader.IsDBNullAsync(0))
+                        {
+                            sourceIds.Add(Convert.ToInt64(reader.GetValue(0)));
+                        }
+                    }
+                }
+
+                if (sourceIds.Count == 0)
+                {
+                    await tx.CommitAsync();
+                    return Ok(new
+                    {
+                        Status = 1,
+                        Message = "No matching rows found.",
+                        RowsAffected = 0,
+                    });
+                }
+
+                var sourceIdParamNames = sourceIds.Select((_, idx) => $"@id{idx}").ToList();
+                var sourceIdInClause = string.Join(", ", sourceIdParamNames);
+
+                int deletedSourceRows;
+                await using (var deleteSourceCmd = conn.CreateCommand())
+                {
+                    deleteSourceCmd.Transaction = tx;
+                    deleteSourceCmd.CommandText = $@"
+                        DELETE FROM site_prediction
+                        WHERE id IN ({sourceIdInClause});";
+
+                    for (int i = 0; i < sourceIds.Count; i += 1)
+                    {
+                        Add(deleteSourceCmd, sourceIdParamNames[i], sourceIds[i]);
+                    }
+
+                    deletedSourceRows = await deleteSourceCmd.ExecuteNonQueryAsync();
+                }
+
+                int deletedOptimizedRows;
+                await using (var deleteOptimizedCmd = conn.CreateCommand())
+                {
+                    var optimizedWhere = new List<string> { $"spo.site_prediction_id IN ({sourceIdInClause})" };
+                    if (!string.IsNullOrWhiteSpace(siteValue))
+                    {
+                        optimizedWhere.Add(
+                            "(spo.tbl_project_id = @pid AND CONVERT(spo.site USING utf8mb4) COLLATE utf8mb4_unicode_ci = @site)");
+                    }
+
+                    deleteOptimizedCmd.Transaction = tx;
+                    deleteOptimizedCmd.CommandText = $@"
+                        DELETE FROM site_prediction_optimized spo
+                        WHERE {string.Join(" OR ", optimizedWhere)};";
+
+                    for (int i = 0; i < sourceIds.Count; i += 1)
+                    {
+                        Add(deleteOptimizedCmd, sourceIdParamNames[i], sourceIds[i]);
+                    }
+                    if (!string.IsNullOrWhiteSpace(siteValue))
+                    {
+                        Add(deleteOptimizedCmd, "@pid", model.ProjectId);
+                        Add(deleteOptimizedCmd, "@site", siteValue);
+                    }
+
+                    deletedOptimizedRows = await deleteOptimizedCmd.ExecuteNonQueryAsync();
+                }
+
+                await tx.CommitAsync();
+
+                return Ok(new
+                {
+                    Status = 1,
+                    Message = "Deleted successfully.",
+                    RowsAffected = deletedSourceRows,
+                    DeletedSourceRows = deletedSourceRows,
+                    DeletedOptimizedRows = deletedOptimizedRows,
+                    DeletedSourceIds = sourceIds
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    Status = 0,
+                    Message = "Error deleting site prediction rows.",
                     Details = ex.Message
                 });
             }

@@ -23,8 +23,17 @@ namespace SignalTracker.Models
         public async Task<bool> PingAsync()
         {
             if (_db == null) return false;
-            var pong = await _db.PingAsync();
-            return pong.TotalMilliseconds >= 0;
+
+            try
+            {
+                var pong = await _db.PingAsync();
+                return pong.TotalMilliseconds >= 0;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Redis PingAsync error: {ex.Message}");
+                return false;
+            }
         }
 
         public async Task<T?> GetObjectAsync<T>(string key) where T : class

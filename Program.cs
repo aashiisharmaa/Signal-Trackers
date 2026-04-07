@@ -115,7 +115,9 @@ Console.WriteLine("✅ Dynamic Database Provider configured");
                     mux.ConnectionRestored += (_, _) =>
                         Console.WriteLine("✅ Redis connection restored");
 
-                    Console.WriteLine("✅ Redis connected");
+                    Console.WriteLine(mux.IsConnected
+                        ? "✅ Redis connected"
+                        : "⚠️ Redis client created, but Redis is not connected yet");
                     return mux;
                 });
 

@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Caching.Distributed;
+using SignalTracker.Models;
 using System;
 using System.Threading.Tasks;
 
@@ -9,11 +9,11 @@ namespace SignalTracker.Controllers
     [ApiController]
     public class RedisTestController : ControllerBase
     {
-        private readonly IDistributedCache _cache;
+        private readonly RedisService _redis;
 
-        public RedisTestController(IDistributedCache cache)
+        public RedisTestController(RedisService redis)
         {
-            _cache = cache;
+            _redis = redis;
         }
 
         [HttpGet("test")]
@@ -21,23 +21,63 @@ namespace SignalTracker.Controllers
         {
             try
             {
-                // Test key-value
-                await _cache.SetStringAsync("redis-test-key", "Redis working!", 
-                    new DistributedCacheEntryOptions
+                var connected = _redis.IsConnected;
+
+                var pingOk = await _redis.PingAsync();
+                if (!pingOk)
+                {
+                    return StatusCode(503, new
                     {
-                        AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(1)
+                        success = false,
+                        message = "Redis is not reachable.",
+                        connected
                     });
+                }
 
-                var value = await _cache.GetStringAsync("redis-test-key");
+                var probeKey = $"redis-test:{Guid.NewGuid():N}";
+                var probeValue = $"Redis working at {DateTime.UtcNow:O}";
 
-                if (value == null)
-                    return Ok(new { success = false, message = "Redis NOT connected." });
+                var stored = await _redis.SetStringAsync(probeKey, probeValue, 60);
+                if (!stored)
+                {
+                    return StatusCode(503, new
+                    {
+                        success = false,
+                        message = "Redis write test failed.",
+                        connected
+                    });
+                }
 
-                return Ok(new { success = true, message = "Redis connected successfully!", data = value });
+                var value = await _redis.GetStringAsync(probeKey);
+                await _redis.DeleteAsync(probeKey);
+
+                if (value != probeValue)
+                {
+                    return StatusCode(503, new
+                    {
+                        success = false,
+                        message = "Redis read-back test failed.",
+                        connected
+                    });
+                }
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Redis connected successfully.",
+                    connected,
+                    data = value
+                });
             }
             catch (Exception ex)
             {
-                return Ok(new { success = false, message = "Redis connection failed.", error = ex.Message });
+                return StatusCode(503, new
+                {
+                    success = false,
+                    message = "Redis connection failed.",
+                    error = ex.Message,
+                    connected = _redis.IsConnected
+                });
             }
         }
     }
